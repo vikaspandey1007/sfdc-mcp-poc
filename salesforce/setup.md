@@ -14,7 +14,7 @@ This file tracks **actual, verified state**, not intent. Each row links to the e
 | `sobject-reads` MCP server activated | ✅ Done, confirmed `Active = true` via API | `hosted-mcp.md` — `McpServerAccess` query, not just a Setup screenshot |
 | Permission Set `Revenue_Agent_Read_Access` deployed + assigned | ✅ Done | `permissions.md` — deploy + assignment + independent SOQL verification |
 | External Client App created (OAuth/PKCE/JWT/scopes/pre-auth) | ✅ Done, retrieved + verified | `external-client-app.md` — retrieved metadata, consumer key redacted before commit |
-| ECA callback URL includes Postman's from the outset | ⬜ Pending — one more Setup edit needed | `external-client-app.md` "Callback URL — action needed" |
+| ECA callback URL includes Postman's from the outset | ✅ Done, confirmed via re-retrieve | `external-client-app.md` "Callback URL — done" |
 | Sample Account/Opportunity/Task data seeded | ✅ Done | see "Sample data" below |
 | Pre-existing org sample data (United Oil, GenePoint, etc.) | ⚠️ Left in place, by decision | see "Pre-existing data" below |
 | Environment verification re-run after final org config | ✅ Passed | `python scripts/verify_environment.py --org devOrg1` — all checks OK |
@@ -58,9 +58,8 @@ org. One pre-existing record (`United Oil Plant Standby Generators`, $675k) will
 lab's seeded data in a raw "highest value open opportunity" sort; the demo script (Gate 4) should account for
 this rather than be surprised by it.
 
-## Manual step still required (Setup UI, cannot be automated from here)
+## Gate 1 status: complete
 
-1. Add the Postman callback URL to the ECA — see `external-client-app.md` "Callback URL — action needed".
-
-Once done, tell me and I'll re-retrieve the metadata, confirm both callback URLs are present, and mark Gate 1
-fully complete.
+All exit criteria met, each with independent verification (not just command success output or written
+intent) — see the status table above and the linked per-topic docs for exact query/API evidence. Ready for
+review.

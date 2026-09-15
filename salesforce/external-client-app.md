@@ -42,7 +42,7 @@ Confirmed settings, read directly from the retrieved files (not re-typed from me
 | Refresh token validity | `30` `Days`, policy type `SpecificInactivity` | `ExtlClntAppOauthConfigurablePolicies.refreshTokenValidityPeriod`/`Unit`/`refreshTokenPolicyType` |
 | Permitted users | `AdminApprovedPreAuthorized` | `ExtlClntAppOauthConfigurablePolicies.permittedUsersPolicyType` |
 | Pre-authorization Permission Set | `Revenue_Agent_Read_Access` | `ExtlClntAppOauthConfigurablePolicies.commaSeparatedPermissionSet` |
-| Callback URL(s) | `http://localhost:8765/callback` | `ExtlClntAppGlobalOauthSettings.callbackUrl` |
+| Callback URL(s) | `http://localhost:8765/callback` and `https://oauth.pstmn.io/v1/callback` (both present, confirmed via re-retrieve) | `ExtlClntAppGlobalOauthSettings.callbackUrl` |
 
 **One flag, not yet resolved by a metadata file read alone:** `isCodeCredFlowEnabled = false`. Believed to
 refer to a separate certificate-based flow (not the Authorization Code + PKCE flow this lab uses — that's
@@ -83,10 +83,9 @@ endpoints actually complete the Authorization Code + PKCE exchange end-to-end. A
 checkboxes are set correctly; it doesn't prove the flow works. That's exactly why Gate 2 (Postman) is
 mandatory per the brief, not a formality.
 
-## Callback URL — action needed
+## Callback URL — done
 
-Only `http://localhost:8765/callback` is currently registered. Per the decision to use the Postman callback
-from the outset (rather than adding it later in Gate 2), **add `https://oauth.pstmn.io/v1/callback` as an
-additional Callback URL** on this ECA (Setup → External Client App Manager → Revenue Agent MCP Client → OAuth
-Settings → Callback URL — Salesforce allows multiple, one per line). Once added, re-run the retrieval commands
-above; this file will be updated with the confirmed multi-callback state.
+Both `http://localhost:8765/callback` and `https://oauth.pstmn.io/v1/callback` are registered, confirmed by
+re-retrieving `ExtlClntAppGlobalOauthSettings` after the change (Salesforce stores multiple callback URLs
+newline-separated within the single `<callbackUrl>` element). Gate 2 can use the Postman callback without any
+further ECA edits.

@@ -185,9 +185,13 @@ sf project retrieve start -m ExtlClntAppOauthSettings -m ExtlClntAppOauthConfigu
 `<consumerKey>` in plaintext. Replace its value with `REDACTED_SEE_ENV_SF_ECA_CONSUMER_KEY` and keep the real
 value only in the local, gitignored `.env`. Full rationale in `external-client-app.md` "Redaction".
 
-✅ **Done in this repo's org** — created, retrieved, verified, redacted. One follow-up pending: the Postman
-callback URL (`https://oauth.pstmn.io/v1/callback`) still needs adding alongside the localhost one. Full
-detail in [`salesforce/external-client-app.md`](../salesforce/external-client-app.md).
+✅ **Done in this repo's org** — created, retrieved, verified, redacted. Both callback URLs
+(`http://localhost:8765/callback` and `https://oauth.pstmn.io/v1/callback`) are registered, confirmed via
+re-retrieve. Full detail in [`salesforce/external-client-app.md`](../salesforce/external-client-app.md).
+
+**Gate 1 is complete.** Every exit criterion (server active, ECA config, metadata retrieved, no secrets,
+environment re-verified) has independent verification — see
+[`salesforce/setup.md`](../salesforce/setup.md) for the full status table.
 
 ---
 
