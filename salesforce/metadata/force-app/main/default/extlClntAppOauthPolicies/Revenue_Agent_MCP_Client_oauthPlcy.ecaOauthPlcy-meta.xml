@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtlClntAppOauthConfigurablePolicies xmlns="http://soap.sforce.com/2006/04/metadata">
+    <commaSeparatedPermissionSet>Revenue_Agent_Read_Access</commaSeparatedPermissionSet>
+    <externalClientApplication>Revenue_Agent_MCP_Client</externalClientApplication>
+    <ipRelaxationPolicyType>Enforce</ipRelaxationPolicyType>
+    <isClientCredentialsFlowEnabled>false</isClientCredentialsFlowEnabled>
+    <isGuestCodeCredFlowEnabled>false</isGuestCodeCredFlowEnabled>
+    <isTokenExchangeFlowEnabled>false</isTokenExchangeFlowEnabled>
+    <label>Revenue_Agent_MCP_Client_oauthPlcy</label>
+    <namedUserJwtSessionTimeoutType>UserSession</namedUserJwtSessionTimeoutType>
+    <permittedUsersPolicyType>AdminApprovedPreAuthorized</permittedUsersPolicyType>
+    <refreshTokenPolicyType>SpecificInactivity</refreshTokenPolicyType>
+    <refreshTokenValidityPeriod>30</refreshTokenValidityPeriod>
+    <refreshTokenValidityUnit>Days</refreshTokenValidityUnit>
+    <requiredSessionLevel>STANDARD</requiredSessionLevel>
+</ExtlClntAppOauthConfigurablePolicies>

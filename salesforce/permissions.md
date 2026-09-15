@@ -21,6 +21,17 @@ pre-authorization gate. With exactly one demo user in this lab, a second Permiss
 ceremony with no security benefit — same net permissions, one more moving part to keep in sync. Flagging this
 explicitly per the brief's rule to update the plan rather than silently deviate from it.
 
+**Enterprise note (reviewer feedback, recorded for any future hardening pass — not acted on in this PoC):**
+in a production pattern, business-data access and client/application pre-authorization should normally be
+separate Permission Sets, because their lifecycle and ownership differ — data-access grants are typically
+owned by a data/security team and change with role, while an ECA's pre-authorization list is an
+integration-owner concern and changes with which *applications* are trusted, independent of what any given
+user can see in the UI. Collapsing them works here specifically because this lab has exactly one user and one
+client; it would not scale cleanly to multiple users or multiple client applications sharing the same
+Hosted MCP server, since revoking one application's access would require touching a Permission Set that also
+controls data visibility, and vice versa. If this pattern is ever taken past a single-user lab, split it back
+into two Permission Sets along that ownership boundary.
+
 ### Evidence: actually deployed and assigned (not just written)
 
 Deployed via `sf project deploy start -d force-app -o devOrg1` from `salesforce/metadata/`:

@@ -1,62 +1,92 @@
 # External Client App (ECA)
 
-**Status as of this writing: not yet created.** ECA creation is a guided Setup wizard with dependent
-picklists and security-sensitive checkboxes (PKCE, JWT access tokens, pre-authorization policy) — Gate 0
-research found `ExternalClientApplication` and its child settings (`ExtlClntAppOauthSettings`,
-`ExtlClntAppOauthConfigurablePolicies`, `ExtlClntAppOauthSecuritySettings`, etc.) **are** valid, retrievable
-metadata types in this org (confirmed: `sf project retrieve start -m ExternalClientApplication` succeeds with
-"Nothing retrieved" rather than a `RegistryError`). Deliberately **not** hand-authoring this XML blind, though
-— getting OAuth/PKCE/JWT security settings wrong from an unverified guess is a worse failure mode than one
-extra manual step. Instead: you create it through Setup (validated, guided UI), and I retrieve the resulting
-metadata afterward via the same command — so the real configuration becomes the source-controlled artifact,
-not a hand-written guess.
+**Status: created and configured.** `ExternalClientApplication` and its child settings
+(`ExtlClntAppOauthSettings`, `ExtlClntAppOauthConfigurablePolicies`, `ExtlClntAppGlobalOauthSettings`) were
+confirmed as valid, retrievable metadata types in this org during Gate 1 investigation (before creation,
+`sf project retrieve start -m ExternalClientApplication` succeeded with "Nothing retrieved" rather than a
+`RegistryError` — proving the type is supported here, just empty). Deliberately **not** hand-authored blind:
+you created it through Setup's guided wizard, and the metadata below was retrieved *from* the org afterward —
+it is the actual configuration, not a written intention.
 
-## Steps (perform in the org, logged in as `test_vikas_epam_27@epam.com`)
+One child type, `ExtlClntAppOauthSecuritySettings`, is **not** in the local `sf` CLI's metadata registry
+(`RegistryError: Missing metadata type definition`) even though it's presumably a real server-side type —
+this is a gap in the CLI tooling, not the org. Its settings (if any beyond what's captured in the other three
+files) aren't independently retrievable right now; nothing in Gate 2's Postman test depends on it.
 
-1. Setup → Quick Find → **"external client"** → **External Client App Manager** → **New External Client App**.
-2. Basic Information:
-   - Name: `Revenue Agent MCP Client` (or similar — record the exact name you use, I'll need it for retrieval)
-   - Distribution State: leave as Local (this is a lab, not a distributed package)
-3. API (OAuth) section — enable OAuth, then set:
-   - **OAuth Scopes**: add exactly two — **"Access MCP servers" (`mcp_api`)** and **"Perform requests at any
-     time" (`refresh_token`)**. Do not add the broad "Manage user data via APIs" (`api`) scope — that's exactly
-     the over-broad access this lab is designed to avoid (brief §5/§6 least privilege).
-   - **Callback URL**: leave a placeholder for now (e.g. `http://localhost:8765/callback`) — Gate 2 will add
-     Postman's `https://oauth.pstmn.io/v1/callback`, and Gate 3 will add whatever ADK's native flow needs, once
-     we know which (see Gate 3A/3B in `docs/gate-0-plan.md`). Multiple callback URLs can be registered on one
-     ECA.
-   - **PKCE**: enable "Require Proof Key for Code Exchange (PKCE)".
-   - **Client secret**: leave the "web server flow requires secret" style option **off** — this lab's clients
-     (Postman initially, then ADK, possibly a token broker) are all native/public clients, not a web server
-     with guaranteed secure server-side secret storage (see `docs/gate-0-plan.md` section C step 5 for why this
-     is environment-dependent, not an MCP-wide rule).
-4. Security settings: enable **"Issue JSON Web Token (JWT)-based access tokens for named users"**; leave other
-   token-shape options off.
-5. Policies → App Policies → **Permitted Users**: set to **"Admin approved users are pre-authorized"**, and
-   attach the **`Revenue_Agent_Read_Access`** Permission Set (already deployed — see `permissions.md`) as the
-   required pre-authorization set.
-6. Refresh Token Policy: set validity to **≤30 days**, enable **Refresh Token Rotation**.
-7. Save. Allow up to **30 minutes** for the ECA to fully propagate before it's usable by a client (documented
-   Salesforce behavior — don't be alarmed if Gate 2's Postman test fails immediately after saving).
+## What was created
 
-## Verification (run after you've created it — tell me and I'll run this)
+- Name: **Revenue Agent MCP Client** (`Revenue_Agent_MCP_Client`)
+- Created: 2026-09-15T17:23:05Z
 
-Once created, I'll run, and paste real output (not paraphrase) into this file:
+## Retrieved metadata (source of truth — see the files themselves for full detail)
 
-```powershell
-# Confirm it exists and see its consumer key (safe to view — not a secret by itself, but never commit it)
-sf data query -q "SELECT Id, DeveloperName, MasterLabel FROM ExternalClientApplication" -o devOrg1
-
-# Pull the real configuration into source control as the actual artifact of record
-cd salesforce\metadata
-sf project retrieve start -m ExternalClientApplication -o devOrg1
+```
+salesforce/metadata/force-app/main/default/
+├── externalClientApps/Revenue_Agent_MCP_Client.eca-meta.xml
+├── extlClntAppOauthSettings/Revenue_Agent_MCP_Client_oauth.ecaOauth-meta.xml
+├── extlClntAppOauthPolicies/Revenue_Agent_MCP_Client_oauthPlcy.ecaOauthPlcy-meta.xml
+└── extlClntAppGlobalOauthSets/Revenue_Agent_MCP_Client_glbloauth.ecaGlblOauth-meta.xml
 ```
 
-The retrieved XML under `salesforce/metadata/force-app/main/default/externalClientApps/` (plus its OAuth
-settings sub-metadata) becomes the checked-in record of what was **actually** configured — this is the
-evidence artifact for Gate 1 review, not a hand-written approximation of what the settings *should* be.
+Confirmed settings, read directly from the retrieved files (not re-typed from memory of what was clicked):
 
-**What still won't be provable from a file diff alone:** the consumer secret (if any exists) and the live
-OAuth authorize/token endpoints only get proven working in Gate 2 (Postman) — a metadata file can show the
-scopes/PKCE/JWT checkboxes are set correctly, but "does this actually authenticate" is Gate 2's job by design
-(brief §8 Gate 2 is the mandatory "prove MCP independently" gate).
+| Setting | Value | Source field |
+|---|---|---|
+| OAuth scopes | `RefreshToken, MCP` (i.e. `refresh_token` + `mcp_api` — no broad `api` scope) | `ExtlClntAppOauthSettings.commaSeparatedOauthScopes` |
+| PKCE required | `true` | `ExtlClntAppGlobalOauthSettings.isPkceRequired` |
+| Named-user JWT access tokens | `true` | `ExtlClntAppGlobalOauthSettings.isNamedUserJwtEnabled` |
+| Client Credentials (M2M/service-account) flow | `false` — confirms no service-account path exists, matching Gate 0 research | `ExtlClntAppGlobalOauthSettings.isClientCredentialsFlowEnabled` and the equivalent field in `ExtlClntAppOauthConfigurablePolicies` |
+| Secret required for refresh token exchange | `false` | `ExtlClntAppGlobalOauthSettings.isSecretRequiredForRefreshToken` |
+| Consumer secret optional | `true` (native/public client, per D2 client-secret guidance) | `ExtlClntAppGlobalOauthSettings.isConsumerSecretOptional` |
+| Refresh token rotation | `true` | `ExtlClntAppGlobalOauthSettings.isRefreshTokenRotationEnabled` |
+| Refresh token validity | `30` `Days`, policy type `SpecificInactivity` | `ExtlClntAppOauthConfigurablePolicies.refreshTokenValidityPeriod`/`Unit`/`refreshTokenPolicyType` |
+| Permitted users | `AdminApprovedPreAuthorized` | `ExtlClntAppOauthConfigurablePolicies.permittedUsersPolicyType` |
+| Pre-authorization Permission Set | `Revenue_Agent_Read_Access` | `ExtlClntAppOauthConfigurablePolicies.commaSeparatedPermissionSet` |
+| Callback URL(s) | `http://localhost:8765/callback` | `ExtlClntAppGlobalOauthSettings.callbackUrl` |
+
+**One flag, not yet resolved by a metadata file read alone:** `isCodeCredFlowEnabled = false`. Believed to
+refer to a separate certificate-based flow (not the Authorization Code + PKCE flow this lab uses — that's
+evidenced instead by `isPkceRequired = true` being set at all), but this isn't asserted with full confidence
+from the field name alone. Verify empirically in Gate 2: if Postman's Authorization Code + PKCE flow works
+end-to-end, this flag's meaning is settled by behavior, not guessed from a name.
+
+## Redaction (read before touching this metadata again)
+
+`ExtlClntAppGlobalOauthSettings` includes `<consumerKey>` — the org's real Consumer Key (Client ID) was
+retrieved in plaintext. For a PKCE public client this isn't a secret in the strict OAuth sense (there's no
+client secret to protect; PKCE exists precisely so the client ID can be public), but publishing an org's live
+Consumer Key into a shared repo by default is still unnecessary exposure — so **it's redacted in the committed
+file** to `REDACTED_SEE_ENV_SF_ECA_CONSUMER_KEY`. The real value lives in the local, gitignored `.env` as
+`SF_ECA_CONSUMER_KEY`.
+
+**If you ever re-run `sf project retrieve start -m ExtlClntAppGlobalOauthSettings`, it will re-populate the
+real key in your working copy — redact it again before committing.** Do not run a blanket
+`sf project deploy start -d force-app` from this directory without checking the diff first: deploying the
+redacted placeholder value back to the org could overwrite the real Consumer Key. Treat
+`externalClientApps/` and `extlClntApp*/` as **retrieve-only reference/evidence**; only `permissionsets/` is
+meant to be deployed routinely.
+
+## Verification performed
+
+```
+SELECT Id, DeveloperName, MasterLabel, CreatedDate FROM ExternalClientApplication
+
+ID                  DEVELOPERNAME              MASTERLABEL                CREATEDDATE
+0xIak000000ZZXZEA4  Revenue_Agent_MCP_Client   Revenue Agent MCP Client   2026-09-15T17:23:05.000+0000
+```
+
+Plus the full metadata retrieval described above, plus a repo-wide grep confirming the real Consumer Key
+value appears nowhere in any non-gitignored file (only the redacted placeholder and the gitignored `.env`).
+
+**What's still Gate 2's job, not provable from a metadata file:** whether the live OAuth authorize/token
+endpoints actually complete the Authorization Code + PKCE exchange end-to-end. A metadata file proves the
+checkboxes are set correctly; it doesn't prove the flow works. That's exactly why Gate 2 (Postman) is
+mandatory per the brief, not a formality.
+
+## Callback URL — action needed
+
+Only `http://localhost:8765/callback` is currently registered. Per the decision to use the Postman callback
+from the outset (rather than adding it later in Gate 2), **add `https://oauth.pstmn.io/v1/callback` as an
+additional Callback URL** on this ECA (Setup → External Client App Manager → Revenue Agent MCP Client → OAuth
+Settings → Callback URL — Salesforce allows multiple, one per line). Once added, re-run the retrieval commands
+above; this file will be updated with the confirmed multi-callback state.

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExternalClientApplication xmlns="http://soap.sforce.com/2006/04/metadata">
+    <contactEmail>pandey.tendu@gmail.com</contactEmail>
+    <distributionState>Local</distributionState>
+    <isProtected>false</isProtected>
+    <label>Revenue Agent MCP Client</label>
+    <orgScopedExternalApp>00Dak00000dgZfd:Revenue_Agent_MCP_Client</orgScopedExternalApp>
+</ExternalClientApplication>

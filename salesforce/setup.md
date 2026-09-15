@@ -11,11 +11,14 @@ This file tracks **actual, verified state**, not intent. Each row links to the e
 |---|---|---|
 | Org confirmed Developer Edition, Hosted MCP framework present | ✅ Done | `docs/gate-0-plan.md` Open Question 3 — `McpServerDefinition`/`McpServerAccess`/etc. Tooling API objects exist |
 | Flex Credit billing exposure | ✅ Checked, not eliminated | `docs/gate-0-plan.md` Open Question 3 — no MCP-related `TenantUsageEntitlement` rows found; not a Salesforce guarantee |
-| `sobject-reads` MCP server activated | ⬜ Not yet — manual Setup step | `hosted-mcp.md` |
+| `sobject-reads` MCP server activated | ✅ Done, confirmed `Active = true` via API | `hosted-mcp.md` — `McpServerAccess` query, not just a Setup screenshot |
 | Permission Set `Revenue_Agent_Read_Access` deployed + assigned | ✅ Done | `permissions.md` — deploy + assignment + independent SOQL verification |
-| External Client App created (OAuth/PKCE/JWT/scopes/pre-auth) | ⬜ Not yet — manual Setup step | `external-client-app.md` |
+| External Client App created (OAuth/PKCE/JWT/scopes/pre-auth) | ✅ Done, retrieved + verified | `external-client-app.md` — retrieved metadata, consumer key redacted before commit |
+| ECA callback URL includes Postman's from the outset | ⬜ Pending — one more Setup edit needed | `external-client-app.md` "Callback URL — action needed" |
 | Sample Account/Opportunity/Task data seeded | ✅ Done | see "Sample data" below |
 | Pre-existing org sample data (United Oil, GenePoint, etc.) | ⚠️ Left in place, by decision | see "Pre-existing data" below |
+| Environment verification re-run after final org config | ✅ Passed | `python scripts/verify_environment.py --org devOrg1` — all checks OK |
+| Secrets scan (retrieved metadata + whole repo) | ✅ Clean | real Consumer Key value confirmed absent from every non-gitignored file; only the redacted placeholder is committed |
 
 ## Sample data
 
@@ -55,11 +58,9 @@ org. One pre-existing record (`United Oil Plant Standby Generators`, $675k) will
 lab's seeded data in a raw "highest value open opportunity" sort; the demo script (Gate 4) should account for
 this rather than be surprised by it.
 
-## Manual steps still required (Setup UI, cannot be automated from here)
+## Manual step still required (Setup UI, cannot be automated from here)
 
-1. Activate the `sobject-reads` Hosted MCP server — see `hosted-mcp.md`.
-2. Create the External Client App — see `external-client-app.md`.
+1. Add the Postman callback URL to the ECA — see `external-client-app.md` "Callback URL — action needed".
 
-Both require interactive Setup UI navigation with dependent picklists/checkboxes I can't drive without a
-browser-control tool. Once done, tell me and I'll run the verification queries/metadata retrieval documented
-in each file and update this table with real evidence before Gate 1 is considered complete.
+Once done, tell me and I'll re-retrieve the metadata, confirm both callback URLs are present, and mark Gate 1
+fully complete.

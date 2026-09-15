@@ -148,9 +148,15 @@ tried and why it doesn't work yet). In the org, logged in as the intended user:
 
 Do **not** activate `sobject-all` or any mutation/delete server — this lab is read-only by design.
 
-⬜ **Pending in this repo's org** — full detail in [`salesforce/hosted-mcp.md`](../salesforce/hosted-mcp.md).
-Verification of this step is indirect (visual Setup confirmation + a working Gate 2 Postman call), since no
-confirmed API exposes the standard server's active/inactive state.
+Verify (this turned out to be checkable via API after all — a correction to Gate 0's assumption that no such
+check existed):
+
+```powershell
+sf data query -q "SELECT DeveloperName, MasterLabel, Active FROM McpServerAccess" -o devOrg1 -t
+```
+
+✅ **Done in this repo's org** — `Active = true` for `sobject-reads`. Full detail in
+[`salesforce/hosted-mcp.md`](../salesforce/hosted-mcp.md).
 
 ### 7. Create the External Client App (ECA) — manual, Setup UI only
 
@@ -172,10 +178,16 @@ Once created, pull the real configuration into source control instead of trustin
 ```powershell
 cd salesforce\metadata
 sf project retrieve start -m ExternalClientApplication -o devOrg1
+sf project retrieve start -m ExtlClntAppOauthSettings -m ExtlClntAppOauthConfigurablePolicies -m ExtlClntAppGlobalOauthSettings -o devOrg1
 ```
 
-⬜ **Pending in this repo's org** — full detail in
-[`salesforce/external-client-app.md`](../salesforce/external-client-app.md).
+**Redact the Consumer Key before committing** — `ExtlClntAppGlobalOauthSettings` retrieves the real
+`<consumerKey>` in plaintext. Replace its value with `REDACTED_SEE_ENV_SF_ECA_CONSUMER_KEY` and keep the real
+value only in the local, gitignored `.env`. Full rationale in `external-client-app.md` "Redaction".
+
+✅ **Done in this repo's org** — created, retrieved, verified, redacted. One follow-up pending: the Postman
+callback URL (`https://oauth.pstmn.io/v1/callback`) still needs adding alongside the localhost one. Full
+detail in [`salesforce/external-client-app.md`](../salesforce/external-client-app.md).
 
 ---
 

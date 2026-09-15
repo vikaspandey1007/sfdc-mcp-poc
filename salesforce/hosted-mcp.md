@@ -1,30 +1,38 @@
 # Hosted MCP Server Activation
 
-**Status as of this writing: not yet activated.** This document is the exact procedure to follow, and the
-exact verification to run afterward. Activation happens through Setup UI only — no CLI/API path was found in
-Gate 0 research, and Gate 1's own investigation confirmed the Tooling API objects for *custom* MCP servers
-(`McpServerDefinition`) exist but return nothing relevant to toggling the *standard* `sobject-reads` server, and
-no `CatalogedApi` metadata type is registered in the local `sf` CLI (`RegistryError` on retrieve) even though
-the org's own `describeMetadata` lists it — so this remains a manual, UI-only step for now.
+**Status: `sobject-reads` is active, confirmed via API — not just a Setup UI screenshot.**
 
-## Steps (perform in the org, logged in as `test_vikas_epam_27@epam.com`)
+Gate 0 research found no confirmed CLI/API check for a standard server's active/inactive state. Gate 1
+investigation found one anyway: the Tooling API object `McpServerAccess` (distinct from `McpServerDefinition`,
+which is for custom servers) has `Active` and `DeveloperName`/`MasterLabel` fields, and directly reflects the
+Setup UI toggle state for standard servers.
 
-1. Setup → Quick Find → type **"MCP Servers"** → open **MCP Servers** (listed under API Catalog).
-   - If it doesn't appear, try Quick Find → **"Agentforce Vibes"** instead (the Developer Edition activation
-     path per Salesforce's April 2026 announcement) and report back what you see — this would mean the
-     feature hasn't propagated to this org the way Gate 0's Tooling API check implied.
-2. Find **`sobject-reads`** ("SObject Reads") in the server list.
-3. Toggle it **Active**. Do **not** activate `sobject-all` or any mutation/delete server — this lab is
-   read-only by design (see `docs/gate-0-plan.md` D1/D6).
-4. Allow up to ~2 minutes for activation to take effect (documented propagation delay).
+## Steps performed (Setup UI, no CLI/metadata path exists for this toggle)
 
-## Verification (run after you've done the above — tell me and I'll run this)
+1. Setup → Quick Find → **"MCP Servers"** (under API Catalog).
+2. Found **`sobject-reads`** ("SObject Reads") and toggled it **Active**.
+3. Waited for activation to take effect.
 
-There's no confirmed API to read the standard server's active/inactive state directly (see the status note
-above), so verification is a combination of:
-- Visual confirmation in Setup that the toggle shows **Active**.
-- Attempting a live Postman call against the server in Gate 2, which will fail cleanly if the server isn't
-  actually active — this is the hard, protocol-level proof, not just a UI checkbox reading.
+## Verification (real query output, not a description of intent)
 
-If you find an API-visible signal of activation state while you're in there (e.g., anything on the MCP Servers
-page that looks queryable), let me know and I'll fold it into this doc and re-check via Tooling API.
+```
+SELECT Id, DeveloperName, MasterLabel, Active, McpServerId FROM McpServerAccess
+
+ID                   DEVELOPERNAME             MASTERLABEL      ACTIVE  MCPSERVERID
+1fzak000006XC29AAG   platform_sobject_reads    sobject-reads    true    null
+```
+
+`Active = true`, confirming the server is live. `DeveloperName = platform_sobject_reads` also matches the
+endpoint path structure discovered independently in `.env`
+(`https://api.salesforce.com/platform/mcp/v1/platform/sobject-reads` — note the `platform/` segment before the
+server name, which isn't obvious from Salesforce's own docs and wasn't predicted in Gate 0 research; recording
+it here since it's needed verbatim for Gate 2's Postman configuration and Gate 3's `SF_MCP_SERVER_URL`).
+
+Only `sobject-reads` was activated — `sobject-all` and any mutation/delete server remain untouched, consistent
+with the read-only design (D1/D6 in `docs/gate-0-plan.md`).
+
+## What this does and doesn't prove
+
+`Active = true` proves the org-side toggle is on. It does **not** prove the endpoint actually answers MCP
+protocol calls (tool discovery, reads) correctly for an authenticated client — that's Gate 2's job (Postman),
+by design, same as the ECA's OAuth settings.
