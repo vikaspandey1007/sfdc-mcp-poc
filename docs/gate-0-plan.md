@@ -3,7 +3,9 @@
 
 Status: **DRAFT — awaiting review/approval**
 Author: Claude (Sonnet 5), synthesizing two primary-source research passes
-Date: 2026-09-15
+Date: 2026-09-15 (revised same day: D2 authentication strategy flipped to
+native-first per reviewer feedback — see D2 rationale for why this is an
+improvement, not just a preference swap)
 
 This document is the Gate 0 deliverable required by the build brief: a feasibility
 verdict, validated architecture, Salesforce/Google setup plans, repository plan,
@@ -40,25 +42,34 @@ actively managed, not assumed away.**
   authenticated remote Streamable-HTTP hang) is **still open**. Source:
   github.com/google/adk-python (issues #2615, #3331, #3621, #4708; commit `e7316dc0`).
 
-**Caveat 1 — do not rely on ADK's native browser-popup OAuth flow for the
-production path.** Treat it as unproven for this specific combination. **Caveat
-2 — Salesforce's own docs conflict on cost** (see D5/Open Questions): the Get
-Started guide says Flex Credits may apply; the GA and Dev Edition blogs imply
-free inclusion. This must be checked live in the org, not assumed.
+**Caveat 1 — ADK's native OAuth+PKCE flow for remote MCP servers is young
+(~4 months old) and has at least one relevant open reliability issue.** Treat
+it as unproven for this specific combination until tested hands-on — but do
+not presume it broken either. **Caveat 2 — Salesforce's own docs conflict on
+cost** (see D5/Open Questions): the Get Started guide says Flex Credits may
+apply; the GA and Dev Edition blogs imply free inclusion. This must be checked
+live in the org, not assumed.
 
-**Mitigation for Caveat 1 (recommended architecture, see D2):** a small,
-one-time, standalone **OAuth token broker** script performs the Authorization
-Code + PKCE flow once (browser consent), obtains access+refresh JWT tokens, and
-the ADK `McpToolset` is configured with those tokens via static/dynamic
-`Authorization: Bearer` headers — sidestepping ADK's native OAuth maturity risk
-entirely. This is also the pattern ADK's own official third-party integration
-docs (GitHub, Supermetrics, Windsor.ai) already use in practice, rather than the
-native flow.
+**Mitigation for Caveat 1 (revised, see D2): test the native flow first, in
+Gate 3, with a fallback ready.** ADK's `McpToolset(auth_scheme=...,
+auth_credential=...)` is attempted against the real Salesforce ECA endpoint
+first. Only if it fails reproducibly (evidence captured, not just "felt
+flaky") does the lab build a small, one-time, standalone **OAuth token
+broker** script as a fallback — performing the Authorization Code + PKCE flow
+once, obtaining access+refresh JWT tokens, and configuring `McpToolset` with
+those tokens via static/dynamic `Authorization: Bearer` headers instead. See
+Gate 3's 3A/3B acceptance branches in section F for the exact test protocol.
+This ordering follows the brief's own §8 Gate 0 rule directly: *"Do not
+silently invent glue code if there is a protocol/authentication
+incompatibility"* — which implies proving the incompatibility first, not
+assuming it from documentation/issue research alone.
 
-**Confidence: Medium-High.** All building blocks exist and are documented; the
-residual risk is integration maturity (ADK+remote-OAuth-MCP is ~4 months old)
-and org-specific cost/availability confirmation, both addressed by Gate 0/1/2
-verification tasks below — not by the architecture itself.
+**Confidence: Medium-High.** All building blocks exist and are documented for
+both the native path and the fallback; the residual risk is integration
+maturity (ADK+remote-OAuth-MCP is ~4 months old, so Gate 3 should budget time
+for the native attempt to fail) and org-specific cost/availability
+confirmation, both addressed by Gate 0/1/2/3 verification tasks below — not by
+the architecture itself.
 
 **No protocol-level incompatibility exists.** Salesforce's ECA (OAuth 2.1 +
 mandatory PKCE + RFC 8707 resource indicator + JWT access tokens) is a
@@ -82,7 +93,7 @@ flowchart TB
     Agent["Google ADK Agent<br/>RevenuePrioritisationAgent"]
     Gemini["Gemini model<br/>(reasoning only)"]
     Toolset["MCP Toolset<br/>McpToolset / StreamableHTTPConnectionParams"]
-    Broker["OAuth Token Broker<br/>(one-time local script)"]
+    Broker["OAuth Token Broker<br/>(fallback only, built if 3B triggers)"]
     ECA["Salesforce External Client App<br/>(OAuth 2.0 + PKCE, mcp_api scope)"]
     SFMCP["Salesforce Hosted MCP Server<br/>(sobject-reads)"]
     SF[("Salesforce Dev Org<br/>Account / Opportunity<br/>CRUD + FLS + Sharing")]
@@ -92,8 +103,9 @@ flowchart TB
     Agent --> Gemini
     Agent --> Toolset
     Toolset -- "Bearer JWT access token" --> SFMCP
-    Broker -. "one-time OAuth 2.0 + PKCE" .-> ECA
-    Broker -- "issues/refreshes token" --> Toolset
+    Toolset -. "PRIMARY: native auth_scheme/auth_credential<br/>OAuth 2.0 + PKCE (Gate 3A)" .-> ECA
+    Broker -. "FALLBACK: one-time OAuth 2.0 + PKCE,<br/>only if 3A fails reproducibly (Gate 3B)" .-> ECA
+    Broker -- "issues/refreshes token (fallback path)" --> Toolset
     ECA --> SFMCP
     SFMCP --> SF
     Agent -. "Gate 6" .-> PolicyMCP
@@ -127,14 +139,26 @@ sequenceDiagram
     UI-->>U: display answer + tools-used panel
 ```
 
-### Authentication flow — one-time token broker (`D2`)
+### Authentication flow — Gate 3A: native ADK OAuth+PKCE (primary attempt)
+
+ADK's `McpToolset(auth_scheme=AuthScheme(...), auth_credential=AuthCredential(...))`
+drives the flow itself: it generates the PKCE-enabled authorize URL, surfaces
+consent (a browser popup/printed URL via `adk web`), exchanges the code for
+tokens, and caches them in session state, attaching `Authorization: Bearer`
+to subsequent MCP calls automatically. No separate diagram is given for this
+path since it happens inside ADK's own internals — from the developer's
+perspective it is "configure `auth_scheme`/`auth_credential`, run `adk web`,
+consent once in the browser." Gate 3 tests this first, against the real
+Salesforce ECA, with a time-box (see section F).
+
+### Authentication flow — Gate 3B: OAuth token broker (fallback, built only if 3A fails reproducibly)
 
 ```mermaid
 sequenceDiagram
     actor Dev as User (browser)
     participant B as OAuth Token Broker (local script)
     participant SF as Salesforce (org My Domain)
-    participant Store as Local token store (.env / not in git)
+    participant Store as Local token store (OS keyring, not in git)
 
     Dev->>B: run `python -m auth.token_broker`
     B->>Dev: open browser to authorize URL (code_challenge, S256)
@@ -142,7 +166,7 @@ sequenceDiagram
     SF-->>B: redirect to localhost callback with auth code
     B->>SF: exchange code + code_verifier for tokens
     SF-->>B: access_token (JWT) + refresh_token
-    B->>Store: persist tokens locally, gitignored
+    B->>Store: persist tokens via OS keyring (encrypted local file fallback if keyring unavailable), never in .env or plaintext in the repo tree
     Note over B,Store: broker refreshes proactively on expiry
 ```
 
@@ -167,7 +191,8 @@ flowchart LR
     UI2 --> Agent2
     Agent2 -- "prompt + tool results (no secrets)" --> GeminiAPI
     Agent2 -- "Bearer token, MCP JSON-RPC" --> MCP2
-    Broker2 -- "OAuth 2.0 + PKCE" --> ECA2
+    Agent2 -. "primary: native OAuth 2.0 + PKCE (3A)" .-> ECA2
+    Broker2 -. "fallback only, if 3A fails (3B)" .-> ECA2
     ECA2 --> MCP2
     MCP2 -- "enforced per-user CRUD/FLS/sharing" --> Data
 ```
@@ -193,10 +218,10 @@ flowchart LR
 | 2 | Check for Flex Credit billing exposure | Setup → Usage-Based Entitlements (or ask Salesforce AE) — **unresolved in primary docs, verify live** | see Open Questions |
 | 3 | Activate the `sobject-reads` server only | MCP Servers page → toggle `sobject-reads` on (≈2 min to activate). Do **not** enable `sobject-all` or mutation servers. | developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/servers-reference.html |
 | 4 | Create dedicated Permission Set(s) | Setup → Permission Sets → new set(s) restricting Account/Opportunity field visibility (FLS) to only what the demo needs, plus a separate **"MCP Client User"** permission set used purely for ECA pre-authorization | developer.salesforce.com/blogs/2026/06/how-to-secure-salesforce-hosted-mcp-servers |
-| 5 | Create the External Client App (ECA) | Setup → Quick Find → **"external client"** → External Client App Manager → New External Client App. OAuth scopes: **"Access MCP servers" (`mcp_api`)** + **"Perform requests at any time" (`refresh_token`)**. Security: enable **"Issue JSON Web Token (JWT)-based access tokens for named users"**. PKCE required (Authorization Code + PKCE only — no service account/M2M option exists for Hosted MCP). Client secret left **blank** (public/native client). | developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/create-external-client-app.html |
+| 5 | Create the External Client App (ECA) | Setup → Quick Find → **"external client"** → External Client App Manager → New External Client App. OAuth scopes: **"Access MCP servers" (`mcp_api`)** + **"Perform requests at any time" (`refresh_token`)**. Security: enable **"Issue JSON Web Token (JWT)-based access tokens for named users"**. PKCE required (Authorization Code + PKCE only — no service account/M2M option exists for Hosted MCP). Client secret: **environment-dependent, not an MCP-wide rule** — leave blank for the native/public client this lab uses (ADK app, token broker if built, Postman); only "Require Secret for Web Server Flow" for a web-based client with guaranteed secure server-side secret storage, which this lab is not. | developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/create-external-client-app.html |
 | 6 | Gate authorization to named users | App Policies → Permitted Users = **"Admin approved users are pre-authorized"**, attach the "MCP Client User" Permission Set, assign only to the demo user | same as step 4 |
 | 7 | Set refresh token policy | Refresh token validity ≤30 days, enable Refresh Token Rotation | developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/create-external-client-app.html |
-| 8 | Register redirect URI(s) | `http://localhost:8765/callback` for the token broker; `https://oauth.pstmn.io/v1/callback` for Postman (Gate 2 diagnostics) | developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/postman.html |
+| 8 | Register redirect URI(s) | `https://oauth.pstmn.io/v1/callback` for Postman (Gate 2 diagnostics); ADK's own local redirect for the Gate 3A native-flow attempt; `http://localhost:8765/callback` for the token broker, only added if Gate 3B is actually triggered | developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/postman.html |
 | 9 | Wait for propagation | ECA can take **up to 30 minutes** to become operational after creation; server toggles take **up to 2 minutes** | developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/create-external-client-app.html |
 | 10 | Seed sample data | 5–10 Accounts, 8–15 Opportunities with varied Amount/Stage/CloseDate/tier/staleness/owner (brief §3) — scripted via `sf data import` from `salesforce/sample-data/*.csv`, run as the demo user or reassigned post-import to exercise sharing | scripted, see repo plan |
 | 11 | Confirm My Domain is used everywhere | Use the org's actual My Domain URL for `login`/`authorize`/`token` endpoints, not bare `login.salesforce.com`, if Enhanced Domains is on (community-reported `invalid_client_id` gotcha) | secondary source, flagged low confidence — verify live |
@@ -209,9 +234,14 @@ flowchart LR
   metadata type, deployable via `sf project deploy`).
 - **Scripted, not metadata**: sample Account/Opportunity data (CSV + `sf data
   import`, idempotent, re-runnable against a fresh org).
-- **Environment/secret config, never committed**: org My Domain URL, ECA
-  consumer key, OAuth tokens (`.env`, gitignored, `.env.example` documents the
-  shape only).
+- **Environment/secret config, never committed**: org My Domain URL and ECA
+  consumer key go in `.env` (gitignored, `.env.example` documents shape only).
+  OAuth **access/refresh tokens themselves** are a higher-value, longer-lived
+  secret than a config value — if Gate 3B's token broker is built, it stores
+  them via **OS keyring** (Windows Credential Manager on this machine, via
+  Python's `keyring` library), with an encrypted local file as fallback if
+  keyring access is unavailable — never in `.env` or any plaintext file inside
+  the repo tree.
 
 ---
 
@@ -228,22 +258,26 @@ flowchart LR
   Studio, since Google does not publish fixed numbers). Avoid Pro-tier models —
   no free tier as of April 2026.
   Source: ai.google.dev/gemini-api/docs/models (fetched).
-- **MCP integration / OAuth-token handling**: **do not** rely on `McpToolset`'s
-  native `auth_scheme`/`auth_credential` OAuth flow for the primary path (see
-  D2/Caveat 1). Instead: `auth/token_broker.py` performs the Authorization
-  Code + PKCE exchange once interactively, persists access+refresh JWT tokens
-  locally (gitignored), and `agent/mcp_config.py` supplies them to
+- **MCP integration / OAuth-token handling** (revised, see D2): **attempt
+  `McpToolset`'s native `auth_scheme`/`auth_credential` OAuth+PKCE flow
+  first**, against the real Salesforce ECA, time-boxed (Gate 3A). Only if it
+  fails reproducibly — captured with the exact error/hang and steps to
+  reproduce — does `agent/mcp_config.py` fall back to a hand-built
+  `auth/token_broker.py` (Gate 3B): a one-time interactive Authorization
+  Code + PKCE exchange, tokens persisted via OS keyring, supplied to
   `McpToolset` via `header_provider` (so a refreshed token is always used,
-  without restarting the agent).
+  without restarting the agent). `auth/` is not created at all unless 3B
+  triggers.
 - **Local runtime**: run locally via `adk web` (Gate 3 validation — its
   Events/Trace tabs directly satisfy the "observable sequence" exit criterion)
   and via the Streamlit UI (Gate 4). No GCP project required for this path.
 - **Optional GCP deployment**: explicitly out of scope for this lab (brief
   §10 Portability). Vertex AI Agent Engine does **not** simplify OAuth handling
   — official docs indicate a custom frontend would be needed to replicate
-  `adk web`'s consent flow — so there is no benefit to moving early, and the
-  token-broker pattern means the runtime choice is now decoupled from the OAuth
-  question anyway.
+  `adk web`'s consent flow — so there is no benefit to moving early. If Gate 3B
+  triggers and the token-broker pattern is built, the runtime choice becomes
+  fully decoupled from the OAuth question; if 3A succeeds, that decoupling
+  isn't needed at all.
 
 ---
 
@@ -264,10 +298,10 @@ sfdc-mcp-poc/
 │   ├── mcp_config.py                  # McpToolset wiring, header_provider using token store
 │   └── config.py                      # env/config loading, validation
 │
-├── auth/
+├── auth/                               # created ONLY if Gate 3B triggers (native ADK OAuth is tried first)
 │   ├── __init__.py
 │   ├── token_broker.py                # one-time interactive OAuth 2.0 + PKCE flow
-│   └── token_store.py                 # local token persistence + refresh, redaction-safe logging
+│   └── token_store.py                 # OS keyring token persistence + refresh, redaction-safe logging
 │
 ├── app/
 │   └── app.py                         # Gate 4 thin Streamlit UI
@@ -308,7 +342,7 @@ sfdc-mcp-poc/
     ├── troubleshooting.md             # grown incrementally from Gate 1 onward
     └── decisions/
         ├── ADR-001-salesforce-mcp-server-choice.md
-        ├── ADR-002-oauth-token-broker-pattern.md
+        ├── ADR-002-oauth-authentication-strategy.md
         ├── ADR-003-local-adk-runtime.md
         ├── ADR-004-streamlit-ui.md
         ├── ADR-005-salesforce-config-as-code-boundary.md
@@ -316,9 +350,12 @@ sfdc-mcp-poc/
 ```
 
 **Deviations from the brief's suggested structure, and why:**
-- Added `auth/` — the brief didn't anticipate needing a dedicated OAuth broker
-  module; research (D2) shows this is necessary given ADK's native-OAuth
-  immaturity for this exact combination.
+- Reserved (not yet created) `auth/` — the brief didn't anticipate needing a
+  dedicated OAuth broker module. Whether it's actually needed is now an
+  empirical question answered in Gate 3 (see D2, section F Gate 3A/3B):
+  research flagged ADK's native-OAuth path as young enough to warrant a tested
+  fallback, but the fallback is only built if the native path demonstrably
+  fails against Salesforce's real endpoint.
 - Added `policy_mcp/` as its own top-level module (brief implied it might live
   under `agent/` or unspecified) — kept separate since it's an independently
   deployable MCP server, matching the brief's "each MCP server is an
@@ -383,26 +420,63 @@ sfdc-mcp-poc/
   wrong org (prod vs. sandbox `login`/`test` host) during OAuth.
 
 ### Gate 3 — Google ADK + Gemini
-- **Tasks**: build `agent/` module per section D; build `auth/token_broker.py`
-  + `auth/token_store.py`; wire `McpToolset` via `header_provider`; validate via
-  `adk web` that the exact sequence in section B's sequence diagram is
-  observable.
-- **Dependencies**: Gate 2 complete (MCP proven independently); Google AI
-  Studio API key obtained.
-- **Files changed**: `agent/*.py`, `auth/*.py`, `pyproject.toml`, `.env.example`.
-- **Manual steps**: create AI Studio API key (aistudio.google.com/apikey, no
-  GCP project needed); run the token broker once interactively.
-- **Automated tests**: `tests/test_mcp_connection.py` (mocked/recorded from
-  Gate 2 fixtures), `tests/test_token_broker.py` (redaction/no-secrets-in-logs),
-  `tests/test_agent.py` (tool selection logic where deterministic).
-- **Acceptance criteria**: "Show me open opportunities worth more than £250k"
-  produces the full observable chain in `adk web`'s Trace tab; response cites
-  Salesforce evidence.
-- **Effort**: 1–2 days, with schedule risk from ADK/remote-OAuth-MCP immaturity
-  (budget extra time here specifically).
-- **Likely failure modes**: `McpToolset` hangs against Streamable HTTP transport
-  (known open issue #2615 — fallback to SSE transport if Salesforce supports
-  it); Gemini free-tier rate limits during iterative testing.
+
+Split into two acceptance branches. **3A is attempted first; 3B is only built
+if 3A fails reproducibly.** This ordering follows directly from the brief's
+own Gate 0 rule not to invent glue code ahead of a proven incompatibility.
+
+**Common tasks (either branch):** build `agent/` module per section D
+(`agent.py`, `prompts.py`, `mcp_config.py`, `config.py`); obtain a Google AI
+Studio API key; configure `McpToolset` pointed at the Salesforce ECA/MCP
+endpoint from Gate 1/2.
+
+**Branch 3A — native ADK OAuth+PKCE (attempt first):**
+- **Task**: configure `McpToolset(auth_scheme=..., auth_credential=...)`
+  against the real Salesforce ECA; drive the consent flow via `adk web`.
+- **Time-box**: up to **half a day** of focused troubleshooting. If not
+  working by then, treat as a 3B trigger rather than continuing indefinitely —
+  this lab has a schedule, and the known open issues (below) mean an
+  unbounded attempt is a real risk, not a hypothetical one.
+- **Success criteria (3A passes)**: a fresh `adk web` session completes OAuth
+  consent, exchanges tokens, and at least one Salesforce read tool call
+  succeeds end-to-end — **reproducible across two consecutive fresh runs**,
+  not a single lucky pass.
+- **Failure criteria (3A fails → triggers 3B)**: a specific, reproducible
+  error (e.g., the documented `code_challenge required` failure mode from
+  issue #4708, a hang consistent with issue #2615, or a consent/discovery
+  ordering defect consistent with issue #3331) captured with logs/error text
+  and reproduction steps — not vague flakiness. Record this evidence in
+  `docs/troubleshooting.md` regardless of outcome.
+- **If 3A succeeds**: `auth/` is never created; skip directly to the
+  Gate 3 exit criterion below.
+
+**Branch 3B — OAuth token broker (fallback, built only on a documented 3A failure):**
+- **Tasks**: build `auth/token_broker.py` (one-time interactive PKCE exchange)
+  + `auth/token_store.py` (OS keyring persistence, encrypted-file fallback);
+  wire `McpToolset` via `header_provider` instead of `auth_scheme`.
+- **Files changed**: `auth/*.py`, plus an ADR documenting the specific 3A
+  failure that justified building it (traceability for anyone who later asks
+  "why does this lab have a custom OAuth component instead of using ADK's
+  built-in support").
+- **Manual steps**: run the token broker once interactively.
+
+**Dependencies**: Gate 2 complete (MCP proven independently); Google AI
+Studio API key obtained.
+**Files changed**: `agent/*.py`, `pyproject.toml`, `.env.example`, and
+`auth/*.py` only if 3B triggers.
+**Automated tests**: `tests/test_mcp_connection.py` (mocked/recorded from
+Gate 2 fixtures), `tests/test_agent.py` (tool selection logic where
+deterministic), and `tests/test_token_broker.py` (redaction/no-secrets-in-logs)
+only if 3B triggers.
+**Acceptance criteria (either branch)**: "Show me open opportunities worth
+more than £250k" produces the full observable chain in `adk web`'s Trace tab;
+response cites Salesforce evidence.
+**Effort**: 3A alone, 0.5–1 day if it works within the time-box; +0.5–1 day
+for 3B if triggered. Budget the combined range for planning purposes.
+**Likely failure modes**: `McpToolset` hangs against Streamable HTTP transport
+(known open issue #2615 — fallback to SSE transport if Salesforce supports
+it, before concluding 3A has failed); Gemini free-tier rate limits during
+iterative testing.
 
 ### Gate 4 — Thin user interface
 - **Tasks**: build `app/app.py` (Streamlit) — question box, answer display,
@@ -485,8 +559,10 @@ sfdc-mcp-poc/
   every call is attributed to the authenticated named user, enforced by
   Salesforce CRUD/FLS/sharing.
 - Secrets: `.gitignore` already excludes `.sf/`, `.env`, `*credentials*.json`,
-  keys/PEMs; token broker persists tokens outside the repo tree; `.env.example`
-  documents shape only.
+  keys/PEMs. If Gate 3A succeeds, ADK/session-managed tokens never touch disk
+  under our control at all. If Gate 3B is triggered, the token broker persists
+  tokens via OS keyring (not `.env`, not a plaintext file in the repo tree);
+  `.env.example` documents config shape only, never token values.
 - Guardrails: explicit system instruction ("never invent CRM information,"
   "do not modify Salesforce data," brief §8) plus automated tests (AT-02
   through AT-04, Gate 5).
@@ -497,11 +573,14 @@ sfdc-mcp-poc/
   Monitoring, filterable by `API_CLIENT_CATEGORY = SALESFORCE_HOSTED_MCP`.
 
 **Residual risks:**
-- ADK's native OAuth path for remote MCP is young (~4 months); mitigated by
-  not using it as the primary mechanism (D2), but the token-broker pattern
-  itself is a custom component that needs its own care (token storage,
-  refresh-failure handling) — not zero-risk, just lower-risk than the
-  alternative.
+- ADK's native OAuth path for remote MCP is young (~4 months) and is now the
+  **primary** attempted mechanism (D2, revised) — Gate 3A carries real risk of
+  hitting the known open issues (#2615, #3331) firsthand. This is accepted
+  deliberately (test before assuming failure) rather than avoided, with a
+  time-boxed fallback (3B) as the safety net. If 3B is triggered, the token
+  broker itself becomes a custom component needing its own care (token
+  storage via OS keyring, refresh-failure handling) — not zero-risk, just
+  lower-risk than depending on an unproven native flow indefinitely.
 - Cost/licensing status of Hosted MCP in this specific org is unverified from
   primary sources (Open Questions) — theoretically could incur Flex Credit
   usage if assumptions about Dev Edition inclusion don't hold.
@@ -525,9 +604,45 @@ Credit exposure before any broader rollout.
 **Rationale:** Narrowest server that fully satisfies the read-only Account/Opportunity use case (brief explicitly requires the agent cannot write); avoids exposing mutation tools "merely because Salesforce can provide them." **Confidence: High** — directly documented server reference table.
 
 ### D2 — Authentication (ADK ↔ Salesforce Hosted MCP)
-**Options:** (a) rely on ADK's native `auth_scheme`/`auth_credential` OAuth+PKCE flow; (b) one-time external OAuth token broker feeding static/dynamic Bearer headers into `McpToolset`.
-**Recommendation: (b), the token broker pattern.**
-**Rationale:** ADK's native PKCE support merged only 2026-05-08; a directly relevant issue (authenticated remote Streamable-HTTP hang, #2615) is still open; official ADK integration examples (GitHub, Supermetrics, Windsor.ai) themselves favor static-header bearer tokens over the native dance in practice. The broker isolates this risk into one small, testable, replaceable component instead of embedding it in the agent framework's newest code path. **Confidence: Medium-High.**
+**Options:** (a) ADK's native `auth_scheme`/`auth_credential` OAuth+PKCE flow; (b) one-time external OAuth token broker feeding static/dynamic Bearer headers into `McpToolset`.
+**Recommendation (revised): (a) first — native ADK OAuth+PKCE, tested hands-on in Gate 3A; (b) only as a tested fallback if (a) fails reproducibly (Gate 3B).**
+
+**Rationale:** The original draft recommended going straight to the broker
+(b), reasoning from documentation/issue research: ADK's native PKCE support
+merged only 2026-05-08, a directly relevant issue (authenticated remote
+Streamable-HTTP hang, #2615) is still open, and ADK's own official
+integration examples (GitHub, Supermetrics, Windsor.ai) favor static-header
+bearer tokens over the native flow in practice. On review, that reasoning is
+sound as *risk awareness* but wrong as a *default* — it presumes failure from
+desk research rather than proving it, which cuts directly against the brief's
+own §8 Gate 0 instruction: *"Do not silently invent glue code if there is a
+protocol/authentication incompatibility"* — the operative word being
+*if*, established by testing, not inferred from GitHub issue titles. It also
+sat awkwardly next to brief §17.9: *"Do not introduce infrastructure or
+abstractions without a demonstrated requirement."* A custom OAuth broker is
+exactly that kind of infrastructure, and building it before confirming it's
+needed would be premature.
+
+The revised approach: attempt (a) first against the real Salesforce ECA,
+time-boxed, with explicit pass/fail criteria (section F, Gate 3A/3B) rather
+than a vibes-based "did it work" judgment — this keeps the empirical spike
+honest and bounded instead of letting native-flow debugging balloon
+indefinitely (a real risk given #2615/#3331 are genuine, documented gaps, not
+invented ones). If (a) fails reproducibly, evidence is captured and (b) is
+built as a scoped fallback, exactly as the brief's Gate 0 rule intends. Two
+supporting refinements folded in: **token storage** for the fallback moves
+from a flat `.env` file to **OS keyring** (Windows Credential Manager on this
+machine, via Python's `keyring` library, encrypted-file fallback if keyring
+access is unavailable) — a refresh token is a longer-lived, higher-value
+secret than ordinary config and deserves better-than-`.env` handling. And
+**client secret guidance is now stated as environment-dependent** (section C
+step 5) rather than an MCP-wide rule — blank/PKCE for this lab's native
+client, but that's a property of the client architecture chosen, not a
+universal Hosted MCP constraint, and the plan should not imply otherwise.
+
+**Confidence: Medium-High** on the ordering being correct; **Medium** on how
+Gate 3A actually resolves — genuinely unknown until tested, which is the
+entire point of treating it as an empirical gate rather than a documentation-only decision.
 
 ### D3 — Agent runtime
 **Options:** local ADK runtime vs. Vertex AI Agent Engine vs. other GCP target.
@@ -618,8 +733,9 @@ Gate 1).
    show evidence per brief §17.
 3. **Gate 2** — Prove MCP independently via Postman/MCP Inspector (mandatory
    gate). Stop and show evidence.
-4. **Gate 3** — Build `auth/` token broker + `agent/` ADK integration; validate
-   via `adk web`. Stop and show evidence.
+4. **Gate 3** — Build `agent/` ADK integration; attempt native ADK OAuth+PKCE
+   first (3A, time-boxed); build the `auth/` token broker only if 3A fails
+   reproducibly (3B). Validate via `adk web`. Stop and show evidence either way.
 5. **Gate 4** — Streamlit thin UI. Stop and show evidence.
 6. **Gate 5** — Security unhappy-path tests (AT-01 through AT-06 in full).
    Stop and show evidence.
