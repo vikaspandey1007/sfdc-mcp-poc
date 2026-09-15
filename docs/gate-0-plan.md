@@ -399,25 +399,39 @@ sfdc-mcp-poc/
   org); `invalid_client_id` from Enhanced Domains/My Domain mismatch (section C
   step 11); Flex Credit billing surprise (check step 2 before scaling usage).
 
-### Gate 2 — Prove MCP independently of Gemini (**mandatory gate**)
+### Gate 2 — Prove MCP independently of Gemini (**mandatory gate**) — ✅ PASS
+
 - **Tasks**: configure Postman per section C step 8 / Salesforce's documented
   manual OAuth 2.0 PKCE flow; discover tools (`tools/list`); perform a read;
   attempt an access-denied scenario (e.g., query a field the demo user's
   Permission Set excludes).
 - **Dependencies**: Gate 1 complete.
-- **Files changed**: `docs/troubleshooting.md` (seed with any issues hit),
-  sanitized examples saved under `docs/` or `salesforce/hosted-mcp.md`.
-- **Manual steps**: Postman configuration and interactive OAuth consent
-  (one-time per Postman environment).
-- **Automated tests**: none required by the brief for this gate (it's
-  explicitly a manual diagnostic gate), but capture request/response JSON as
-  fixtures for `tests/test_mcp_connection.py` in Gate 3.
-- **Acceptance criteria**: sanitized `tools/list`, successful read, and
-  access-denied examples captured; Salesforce MCP proven to work with zero LLM
-  involvement.
-- **Effort**: 0.5 day.
-- **Likely failure modes**: redirect URI mismatch; ECA not yet propagated;
-  wrong org (prod vs. sandbox `login`/`test` host) during OAuth.
+- **Files changed**: `salesforce/postman-verification.md` (full evidence —
+  ended up being the natural home instead of splitting across
+  `docs/troubleshooting.md`/`salesforce/hosted-mcp.md` as originally guessed;
+  no troubleshooting was needed, so `docs/troubleshooting.md` stays empty for
+  now).
+- **Manual steps**: Postman configuration and interactive OAuth consent —
+  done.
+- **Automated tests**: none required by the brief for this gate. Captured
+  request/response JSON is in `salesforce/postman-verification.md` for reuse
+  as `tests/test_mcp_connection.py` fixtures in Gate 3.
+- **Acceptance criteria — met**: `tools/list` returned six read-only-annotated
+  tools, no mutation tool present; `soqlQuery` returned real data matching
+  Gate 1's independent verification exactly (`totalSize: 11`); an attempted
+  `updateRecord` call was rejected as an unknown tool (stronger than a
+  permission-denied rejection — the capability doesn't exist for this client
+  at all). Salesforce MCP proven to work with zero LLM involvement. The
+  access-denied *FLS* scenario (as opposed to the tool-catalogue-absence
+  scenario actually captured) is deliberately deferred to Gate 5, where a
+  genuinely restricted test user makes it a meaningful test rather than a
+  likely false negative against the current admin-ish user.
+- **Bonus resolved**: `isCodeCredFlowEnabled = false` (flagged as an open
+  question in `external-client-app.md`) does not block the Authorization
+  Code + PKCE flow — settled empirically, not guessed.
+- **Effort**: 0.5 day (matched estimate).
+- **Failure modes anticipated but not hit**: redirect URI mismatch; ECA not
+  yet propagated; wrong org during OAuth. None occurred.
 
 ### Gate 3 — Google ADK + Gemini
 

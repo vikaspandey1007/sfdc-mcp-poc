@@ -197,8 +197,19 @@ environment re-verified) has independent verification — see
 
 ## Gate 2 — Prove MCP independently of Gemini (Postman)
 
-_Not started yet. This section will be filled in with the exact Postman configuration and captured evidence
-once Gate 1 is complete and merged._
+**Status: PASS.** Full configuration reference and captured evidence (real request/response JSON, not
+paraphrased) in [`salesforce/postman-verification.md`](../salesforce/postman-verification.md). Summary:
+
+- MCP session handshake succeeded (`202`, distinct `mcp-session-id`).
+- `tools/list` returned exactly six tools, all self-annotated `readOnlyHint: true` — no mutation tool exists
+  in the catalogue.
+- `soqlQuery` returned real data matching Gate 1's independently-verified SOQL results exactly
+  (`totalSize: 11`).
+- An attempted `updateRecord` call was rejected as an **unknown tool** (JSON-RPC `-32602`), not as a
+  permission-denied write — proving the stronger security claim: the capability doesn't exist for this
+  client, it isn't merely blocked at call time.
+- Resolved Gate 1's open question about `isCodeCredFlowEnabled = false`: it does not block the Authorization
+  Code + PKCE flow, settled empirically rather than guessed.
 
 ## Gate 3 — Google ADK + Gemini
 
