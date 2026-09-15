@@ -647,12 +647,12 @@ entire point of treating it as an empirical gate rather than a documentation-onl
 ### D3 — Agent runtime
 **Options:** local ADK runtime vs. Vertex AI Agent Engine vs. other GCP target.
 **Recommendation: local ADK runtime.**
-**Rationale:** brief's own default preference; user currently has neither a GCP project nor Vertex AI enabled; Agent Engine does not simplify OAuth (docs suggest it requires a custom frontend to replicate `adk web`'s consent flow) and the token-broker pattern already decouples OAuth from runtime choice, removing the one reason that might have justified Agent Engine. **Confidence: High.**
+**Rationale:** brief's own default preference; user currently has neither a GCP project nor Vertex AI enabled; Agent Engine does not simplify OAuth (docs suggest it requires a custom frontend to replicate `adk web`'s consent flow), removing the one reason that might have justified it over local. **Confidence: High.**
 
 ### D4 — UI
 **Options:** `adk web` alone vs. Streamlit vs. custom frontend.
 **Recommendation: `adk web` for Gate 3 technical validation; a minimal Streamlit app for Gate 4's business-facing demo.**
-**Rationale:** `adk web`'s Events/Trace/Graph tabs already satisfy Gate 3's "observable sequence" exit criterion with zero extra engineering — use it there. But the brief explicitly wants a distinct Gate 4 UI deliverable for a non-technical audience; Streamlit is the minimum-engineering option that still shows question/answer/evidence, and since OAuth is already handled by the token broker (D2), the UI layer carries none of that complexity. **Confidence: High.**
+**Rationale:** `adk web`'s Events/Trace/Graph tabs already satisfy Gate 3's "observable sequence" exit criterion with zero extra engineering — use it there. But the brief explicitly wants a distinct Gate 4 UI deliverable for a non-technical audience; Streamlit is the minimum-engineering option that still shows question/answer/evidence. OAuth handling (native or broker, per D2) lives entirely in `agent/mcp_config.py`, so the UI layer carries none of that complexity either way. **Confidence: High.**
 
 ### D5 — Salesforce configuration-as-code boundary
 **Options:** full metadata-as-code vs. fully manual vs. a split.
@@ -727,7 +727,7 @@ Gate 1).
 
 ## J. Implementation order
 
-1. Resolve Open Questions 1–5 above.
+1. Resolve remaining open question (#5, Google AI Studio key) when required — not a Gate 1 blocker; #1–4 are already resolved.
 2. **Gate 1** — Salesforce foundation (org verification, `sobject-reads`
    activation, Permission Set + ECA creation, sample data seeding). Stop and
    show evidence per brief §17.
