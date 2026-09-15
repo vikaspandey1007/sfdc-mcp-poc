@@ -47,6 +47,13 @@ Hosted MCP server surfaces it.
 
 To re-run (idempotent): `python scripts/seed_data.py --org devOrg1`
 
+**Known limitation (non-blocker, tracked):** `CloseDate` values in `opportunities.csv` and the
+`RECENT_ACTIVITY_DATE`/`STALE_ACTIVITY_DATE` constants in `scripts/seed_data.py` are hard-coded absolute dates
+anchored to when this data was seeded (2026-09). They will drift out of "recent"/"stale"/open-vs-closed
+relevance over time. Not fixed now since it doesn't block any gate; if this lab is still active well past its
+original seeding date, regenerate `opportunities.csv` with dates computed relative to the current date rather
+than editing the hard-coded values in place.
+
 ## Pre-existing data
 
 This org already contained ~30 Opportunities and their Accounts from Salesforce's standard Developer Edition

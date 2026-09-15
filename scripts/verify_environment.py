@@ -1,7 +1,10 @@
 """Check local prerequisites for the sfdc-mcp-poc lab.
 
-Prints pass/fail per check. Never prints secret values (tokens, keys) --
-only presence/absence of required environment variables.
+Prints pass/fail per check. Currently covers Python version, sf CLI presence,
+and org auth -- no required env vars exist yet (Gate 2 is Postman-only, no
+script reads .env). A required-env-vars check belongs here starting Gate 3,
+once agent/config.py actually has variables to validate (SF_MCP_SERVER_URL,
+GOOGLE_API_KEY, etc.) -- add it then rather than speculatively now.
 
 Usage:
     python scripts/verify_environment.py --org devOrg1
@@ -11,7 +14,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -50,15 +52,6 @@ def check_org_auth(org: str) -> bool:
     connected = payload.get("status") == 0 and payload.get("result", {}).get("connectedStatus") == "Connected"
     print(f"[{'OK' if connected else 'FAIL'}] Salesforce org '{org}' connected")
     return connected
-
-
-def check_env_vars(required: list[str]) -> bool:
-    all_ok = True
-    for var in required:
-        present = bool(os.environ.get(var))
-        print(f"[{'OK' if present else 'MISSING'}] env var {var} set")
-        all_ok = all_ok and present
-    return all_ok
 
 
 def main() -> None:

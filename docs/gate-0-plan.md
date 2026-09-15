@@ -399,25 +399,39 @@ sfdc-mcp-poc/
   org); `invalid_client_id` from Enhanced Domains/My Domain mismatch (section C
   step 11); Flex Credit billing surprise (check step 2 before scaling usage).
 
-### Gate 2 — Prove MCP independently of Gemini (**mandatory gate**)
+### Gate 2 — Prove MCP independently of Gemini (**mandatory gate**) — ✅ PASS
+
 - **Tasks**: configure Postman per section C step 8 / Salesforce's documented
   manual OAuth 2.0 PKCE flow; discover tools (`tools/list`); perform a read;
   attempt an access-denied scenario (e.g., query a field the demo user's
   Permission Set excludes).
 - **Dependencies**: Gate 1 complete.
-- **Files changed**: `docs/troubleshooting.md` (seed with any issues hit),
-  sanitized examples saved under `docs/` or `salesforce/hosted-mcp.md`.
-- **Manual steps**: Postman configuration and interactive OAuth consent
-  (one-time per Postman environment).
-- **Automated tests**: none required by the brief for this gate (it's
-  explicitly a manual diagnostic gate), but capture request/response JSON as
-  fixtures for `tests/test_mcp_connection.py` in Gate 3.
-- **Acceptance criteria**: sanitized `tools/list`, successful read, and
-  access-denied examples captured; Salesforce MCP proven to work with zero LLM
-  involvement.
-- **Effort**: 0.5 day.
-- **Likely failure modes**: redirect URI mismatch; ECA not yet propagated;
-  wrong org (prod vs. sandbox `login`/`test` host) during OAuth.
+- **Files changed**: `salesforce/postman-verification.md` (full evidence —
+  ended up being the natural home instead of splitting across
+  `docs/troubleshooting.md`/`salesforce/hosted-mcp.md` as originally guessed;
+  no troubleshooting was needed, so `docs/troubleshooting.md` stays empty for
+  now).
+- **Manual steps**: Postman configuration and interactive OAuth consent —
+  done.
+- **Automated tests**: none required by the brief for this gate. Captured
+  request/response JSON is in `salesforce/postman-verification.md` for reuse
+  as `tests/test_mcp_connection.py` fixtures in Gate 3.
+- **Acceptance criteria — met**: `tools/list` returned six read-only-annotated
+  tools, no mutation tool present; `soqlQuery` returned real data matching
+  Gate 1's independent verification exactly (`totalSize: 11`); an attempted
+  `updateRecord` call was rejected as an unknown tool (stronger than a
+  permission-denied rejection — the capability doesn't exist for this client
+  at all). Salesforce MCP proven to work with zero LLM involvement. The
+  access-denied *FLS* scenario (as opposed to the tool-catalogue-absence
+  scenario actually captured) is deliberately deferred to Gate 5, where a
+  genuinely restricted test user makes it a meaningful test rather than a
+  likely false negative against the current admin-ish user.
+- **Bonus resolved**: `isCodeCredFlowEnabled = false` (flagged as an open
+  question in `external-client-app.md`) does not block the Authorization
+  Code + PKCE flow — settled empirically, not guessed.
+- **Effort**: 0.5 day (matched estimate).
+- **Failure modes anticipated but not hit**: redirect URI mismatch; ECA not
+  yet propagated; wrong org during OAuth. None occurred.
 
 ### Gate 3 — Google ADK + Gemini
 
@@ -496,14 +510,30 @@ iterative testing.
 ### Gate 5 — Security unhappy paths
 - **Tasks**: prove AT-03/AT-04 explicitly; attempt the "move every opp to
   Closed Won" prompt and confirm refusal; test with an expired/revoked token;
-  grep repo + logs for secrets.
+  grep repo + logs for secrets; **create a genuinely restricted second
+  Salesforce user** (see "Gate 1 review caveat" below) and re-run the
+  read/evidence tests as that user to prove Salesforce authorization is
+  actually restrictive end-to-end, not just additively unexercised.
 - **Dependencies**: Gate 4 complete (or can run in parallel with Gate 4 once
   Gate 3 is stable).
 - **Files changed**: `tests/test_guardrails.py` (expanded), `docs/security-model.md`.
 - **Manual steps**: manually revoke the ECA grant once to test failure
-  behavior; manually restrict a field via FLS to test AT-01/AT-04 boundary.
+  behavior; manually restrict a field via FLS to test AT-01/AT-04 boundary;
+  create the restricted test user (Setup UI, same constraint as Gate 1's
+  ECA/server steps).
 - **Automated tests**: `tests/test_guardrails.py` covering AT-02, AT-03, AT-04,
   AT-06.
+
+**Gate 1 review caveat (recorded here, not a Gate 1 blocker):** `Revenue_Agent_Read_Access` is a Permission
+Set, which is **additive, not restrictive** — assigning it does not make a user's effective Salesforce access
+read-only if their Profile or other assigned Permission Sets already grant broader CRUD/FLS. Gate 1's actual
+least-privilege enforcement currently comes from a different, stronger mechanism: only `sobject-reads` is
+activated as an MCP server, and no mutation-capable server is active at all — so there is currently no write
+path through MCP regardless of what the underlying Salesforce user could technically do through other
+channels. That's sufficient for Gate 1's scope (proving the MCP/OAuth/agent architecture), but it is **not**
+sufficient to later claim "Salesforce authorization proves least privilege end-to-end" in the architecture
+demo — that claim requires a user whose *effective* access is actually restricted, which this lab has not yet
+created. Gate 5 is where that gets built and proven, not asserted.
 - **Acceptance criteria**: all of brief §12's AT-01 through AT-06 pass.
 - **Effort**: 0.5–1 day.
 - **Likely failure modes**: agent silently retries/hallucinates on denial
@@ -573,6 +603,9 @@ iterative testing.
   Monitoring, filterable by `API_CLIENT_CATEGORY = SALESFORCE_HOSTED_MCP`.
 
 **Residual risks:**
+- `Revenue_Agent_Read_Access` is additive, not restrictive — see the Gate 5 backlog entry above for the full
+  caveat and the plan to address it with a genuinely restricted test user before claiming end-to-end
+  least-privilege enforcement in the architecture demo.
 - ADK's native OAuth path for remote MCP is young (~4 months) and is now the
   **primary** attempted mechanism (D2, revised) — Gate 3A carries real risk of
   hitting the known open issues (#2615, #3331) firsthand. This is accepted
