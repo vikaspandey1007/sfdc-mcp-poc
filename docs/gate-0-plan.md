@@ -656,8 +656,22 @@ entire point of treating it as an empirical gate rather than a documentation-onl
 
 ### D5 — Salesforce configuration-as-code boundary
 **Options:** full metadata-as-code vs. fully manual vs. a split.
-**Recommendation: split** — Permission Set(s) as source-controlled metadata; sample data as a scripted, idempotent CSV import; Hosted MCP server activation and ECA creation as documented manual Setup UI steps (no CLI/metadata/API path was found in research for either); all identifiers/secrets as environment configuration, never committed.
-**Rationale:** Don't force declarative deployment where Salesforce doesn't support it cleanly (brief §7) — and research found no evidence such support exists yet for MCP server activation or ECA creation. **Confidence: Medium** on the "no CLI/metadata path exists" claim — it's an absence-of-evidence finding from the research pass, not a confirmed negative; worth a quick double-check in Gate 1 before finalizing `salesforce/setup.md`.
+**Recommendation: split** — Permission Set(s) as source-controlled metadata; sample data as a scripted, idempotent CSV import; Hosted MCP server activation as a documented manual Setup UI step; **ECA creation as manual Setup UI (creation itself), but its resulting configuration retrieved into source-controlled metadata afterward** — see correction below; all identifiers/secrets as environment configuration, never committed.
+
+**Correction (Gate 1, supersedes the original rationale below):** the "no CLI/metadata/API path was found for
+either" claim was **wrong for the ECA half** — Gate 1 confirmed `ExternalClientApplication` and its OAuth
+child metadata types (`ExtlClntAppOauthSettings`, `ExtlClntAppOauthConfigurablePolicies`,
+`ExtlClntAppGlobalOauthSettings`) are real, retrievable metadata types in this org (`sf project retrieve
+start -m ExternalClientApplication` succeeds; only `ExtlClntAppOauthSecuritySettings` hits a local CLI
+registry gap, not an org-side one). The Gate 0 confidence flag on this exact claim ("worth a quick double-check
+in Gate 1") correctly predicted the need for verification, and the verification found the opposite of what was
+assumed. Practical effect: ECA *creation* still went through Setup's guided wizard deliberately (see
+`salesforce/external-client-app.md` — hand-authoring OAuth/PKCE/JWT XML blind was judged a worse risk than one
+manual step), but the *result* is retrieved and source-controlled, not just documented as intent. The
+`sobject-reads` activation half of the original claim held up — no metadata type or API was found for that
+specific toggle, only a read-back via the `McpServerAccess` Tooling object (see `salesforce/hosted-mcp.md`).
+
+**Rationale (original, ECA half now superseded above):** Don't force declarative deployment where Salesforce doesn't support it cleanly (brief §7) — and research found no evidence such support exists yet for MCP server activation or ECA creation. **Confidence: Medium** on the "no CLI/metadata path exists" claim — it's an absence-of-evidence finding from the research pass, not a confirmed negative; worth a quick double-check in Gate 1 before finalizing `salesforce/setup.md`.
 
 ### D6 — Read capability shape
 **Options:** generic `sobject-reads` SOQL-style tool vs. a purpose-built Flow/Apex/Named Query tool scoped to only Account/Opportunity fields.
