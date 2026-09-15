@@ -1,0 +1,12 @@
+[project]
+name = "sfdc-mcp-poc"
+version = "0.1.0"
+description = "Revenue Prioritisation Agent lab: Salesforce Hosted MCP + Google ADK/Gemini"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

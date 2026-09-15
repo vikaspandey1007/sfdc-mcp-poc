@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Revenue Agent Read Access</label>
+    <description>Read-only Account/Opportunity/Task access for the Revenue Agent demo. Also gates ECA pre-authorization -- see salesforce/external-client-app.md.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <objectPermissions>
+        <object>Account</object>
+        <allowRead>true</allowRead>
+        <allowCreate>false</allowCreate>
+        <allowEdit>false</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>false</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <object>Opportunity</object>
+        <allowRead>true</allowRead>
+        <allowCreate>false</allowCreate>
+        <allowEdit>false</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>false</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <object>Task</object>
+        <allowRead>true</allowRead>
+        <allowCreate>false</allowCreate>
+        <allowEdit>false</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>false</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
+    <fieldPermissions>
+        <field>Account.Rating</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Account.Industry</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Opportunity.Amount</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+</PermissionSet>

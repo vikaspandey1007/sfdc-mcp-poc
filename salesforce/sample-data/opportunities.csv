@@ -1,0 +1,13 @@
+Name,AccountName,Amount,StageName,CloseDate,Stale
+Acme - Plant Automation Upgrade,Acme Manufacturing,320000,Negotiation/Review,2026-10-03,true
+Acme - Warehouse IoT Rollout,Acme Manufacturing,95000,Proposal/Price Quote,2026-10-30,false
+Meridian - POS Platform Refresh,Meridian Retail Group,275000,Proposal/Price Quote,2026-10-10,true
+Meridian - Loyalty Program Integration,Meridian Retail Group,60000,Qualification,2026-12-14,false
+Northwind - Fleet Tracking Expansion,Northwind Logistics,410000,Negotiation/Review,2026-09-25,false
+Northwind - Route Optimization Pilot,Northwind Logistics,150000,Needs Analysis,2026-11-14,false
+Blackwood - Core Banking Migration,Blackwood Financial Services,520000,Negotiation/Review,2026-10-05,true
+Blackwood - Compliance Reporting Suite,Blackwood Financial Services,180000,Value Proposition,2026-11-04,false
+Fenwick - Patient Records Platform,Fenwick Healthcare Partners,300000,Proposal/Price Quote,2026-10-13,true
+Orion - Cloud Migration Phase 2,Orion Technology Solutions,265000,Prospecting,2026-12-24,false
+Sterling - Claims Automation,Sterling Insurance Group,340000,Negotiation/Review,2026-09-30,true
+Ashford - Smart Grid Analytics,Ashford Energy Ltd,480000,Proposal/Price Quote,2026-10-07,false
