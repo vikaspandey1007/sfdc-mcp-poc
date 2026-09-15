@@ -1,0 +1,33 @@
+# Salesforce CLI local auth/session state - NEVER commit (contains tokens)
+.sf/
+.sfdx/
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*credentials*.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
