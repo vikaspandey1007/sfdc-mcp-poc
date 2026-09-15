@@ -558,30 +558,55 @@ Credit exposure before any broader rollout.
 
 ## I. Open questions
 
-Only items that genuinely block moving into Gate 1 — everything else above is
-resolved from primary documentation.
+Items 1–4 were resolved during Gate 0 (see findings below). Item 5 remains open.
 
-1. **Org verification method** — the connected Dev org's `sf` CLI session
-   currently shows an error status ("HTTP response contains html content"),
-   suggesting an expired session. Do you want me to attempt re-authentication
-   and query the org directly (via `sf`/Tooling API) to check Hosted MCP
-   availability and Permission Set state, or will you check manually via Setup
-   UI and report back what you see?
-2. **Which org to use** — reuse the already-connected
-   `vikas_pandey@creative-narwhal-sf6pwp.com` Dev org as-is, or provision a
-   fresh Developer Edition org for a known-clean lab environment (no
-   pre-existing metadata/config history to account for)?
-3. **Cost verification owner** — given the primary-source conflict on Flex
-   Credit billing (section A/G), do you want to check Setup → Usage-Based
-   Entitlements yourself, or should I look for a way to check it via CLI/API
-   once org access is confirmed?
-4. **Gate 2 diagnostic client** — Salesforce's own docs name Postman as the
-   recommended tool (with a full documented manual config, no importable
-   collection found) and separately mention MCP Inspector for troubleshooting.
-   Do you have Postman available and want to use it, or prefer MCP Inspector?
+1. ~~Org verification method~~ **Resolved.** Re-authenticated via
+   `sf org login web`; queried the org directly.
+2. ~~Which org to use~~ **Resolved.** Reusing the connected Dev org, alias
+   `devOrg1`, instance `epamsystemsinc9-dev-ed.develop.my.salesforce.com`,
+   username `test_vikas_epam_27@epam.com`. Confirmed via
+   `SELECT Name, OrganizationType, IsSandbox FROM Organization`:
+   `OrganizationType = Developer Edition`, `IsSandbox = false`. Note:
+   `Organization.Name` is `"EPAM Systems Inc"` — this is a free-text field set
+   at signup, not proof of corporate ownership/control; confirmed with the
+   user this is their own org and acceptable to use, flagged once for
+   awareness since it will visibly appear in any demo screenshots.
+3. ~~Cost verification~~ **Resolved, with residual uncertainty.** Confirmed
+   via Tooling API (`GET /tooling/sobjects/`) that Hosted MCP's platform
+   objects (`McpServerDefinition`, `McpServerAccess`,
+   `McpServerToolDefinition`, `McpServerToolApiDefinition`,
+   `McpServerPromptDefinition`, `McpServerResourceDefinition`) **exist in this
+   org** — hard evidence the feature is licensed/available here, not just
+   theoretically per the blog posts. Queried `TenantUsageEntitlement` (the
+   object backing Setup → Usage-Based Entitlements) and found **23 entitlement
+   records, none referencing MCP, Flex Credits, "Salesforce Record Operation,"
+   or "Salesforce Process Invocation"** — i.e., no Flex Credit metering
+   infrastructure is currently provisioned against this org for Hosted MCP.
+   This is **supporting evidence for "free," not a Salesforce-issued
+   guarantee** — Salesforce could still provision metering later per their
+   documented "30 days' notice before billing begins" commitment (secondary
+   source). Proceeding on the working assumption that `sobject-reads` usage in
+   this org is free for the lab's scope; re-check this table after Gate 1's
+   server activation in case activation itself provisions a new entitlement
+   row.
+   **New verification method discovered, not documented in Salesforce's own
+   docs**: `sf api request rest /services/data/v67.0/tooling/sobjects/ -o
+   <org>` and grep for `Mcp` — confirms Hosted MCP framework presence via CLI
+   without needing Setup UI access. Recorded here since research explicitly
+   found no such CLI/API path in official documentation.
+4. ~~Gate 2 diagnostic client~~ **Resolved.** Postman, per Salesforce's
+   documented manual OAuth 2.0 PKCE configuration (section C step 8).
 5. **Google AI Studio key** — do you want to create the free API key now (no
    GCP project required, aistudio.google.com/apikey) so Gate 3 isn't blocked
-   later, or handle it when we reach Gate 3?
+   later, or handle it when we reach Gate 3? Still open — not a Gate 1 blocker.
+
+**Operational note discovered during this check**: `sf data query` (and other
+`sf` subcommands that shell out internally) fail under this machine's Git
+Bash/MSYS environment with `'C:\Program' is not recognized...` due to
+unquoted-path handling on Windows — but work correctly under PowerShell. Use
+PowerShell for `sf` CLI data/API commands on this machine going forward
+(noted for `scripts/verify_environment.py` and `docs/troubleshooting.md` in
+Gate 1).
 
 ---
 
