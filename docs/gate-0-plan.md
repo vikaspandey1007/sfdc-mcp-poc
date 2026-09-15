@@ -496,14 +496,30 @@ iterative testing.
 ### Gate 5 — Security unhappy paths
 - **Tasks**: prove AT-03/AT-04 explicitly; attempt the "move every opp to
   Closed Won" prompt and confirm refusal; test with an expired/revoked token;
-  grep repo + logs for secrets.
+  grep repo + logs for secrets; **create a genuinely restricted second
+  Salesforce user** (see "Gate 1 review caveat" below) and re-run the
+  read/evidence tests as that user to prove Salesforce authorization is
+  actually restrictive end-to-end, not just additively unexercised.
 - **Dependencies**: Gate 4 complete (or can run in parallel with Gate 4 once
   Gate 3 is stable).
 - **Files changed**: `tests/test_guardrails.py` (expanded), `docs/security-model.md`.
 - **Manual steps**: manually revoke the ECA grant once to test failure
-  behavior; manually restrict a field via FLS to test AT-01/AT-04 boundary.
+  behavior; manually restrict a field via FLS to test AT-01/AT-04 boundary;
+  create the restricted test user (Setup UI, same constraint as Gate 1's
+  ECA/server steps).
 - **Automated tests**: `tests/test_guardrails.py` covering AT-02, AT-03, AT-04,
   AT-06.
+
+**Gate 1 review caveat (recorded here, not a Gate 1 blocker):** `Revenue_Agent_Read_Access` is a Permission
+Set, which is **additive, not restrictive** — assigning it does not make a user's effective Salesforce access
+read-only if their Profile or other assigned Permission Sets already grant broader CRUD/FLS. Gate 1's actual
+least-privilege enforcement currently comes from a different, stronger mechanism: only `sobject-reads` is
+activated as an MCP server, and no mutation-capable server is active at all — so there is currently no write
+path through MCP regardless of what the underlying Salesforce user could technically do through other
+channels. That's sufficient for Gate 1's scope (proving the MCP/OAuth/agent architecture), but it is **not**
+sufficient to later claim "Salesforce authorization proves least privilege end-to-end" in the architecture
+demo — that claim requires a user whose *effective* access is actually restricted, which this lab has not yet
+created. Gate 5 is where that gets built and proven, not asserted.
 - **Acceptance criteria**: all of brief §12's AT-01 through AT-06 pass.
 - **Effort**: 0.5–1 day.
 - **Likely failure modes**: agent silently retries/hallucinates on denial
@@ -573,6 +589,9 @@ iterative testing.
   Monitoring, filterable by `API_CLIENT_CATEGORY = SALESFORCE_HOSTED_MCP`.
 
 **Residual risks:**
+- `Revenue_Agent_Read_Access` is additive, not restrictive — see the Gate 5 backlog entry above for the full
+  caveat and the plan to address it with a genuinely restricted test user before claiming end-to-end
+  least-privilege enforcement in the architecture demo.
 - ADK's native OAuth path for remote MCP is young (~4 months) and is now the
   **primary** attempted mechanism (D2, revised) — Gate 3A carries real risk of
   hitting the known open issues (#2615, #3331) firsthand. This is accepted
