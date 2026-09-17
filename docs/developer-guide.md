@@ -308,7 +308,30 @@ recipe: [`docs/deployment-guide.md`](deployment-guide.md).
 
 ## Gate 5 — Thin UI
 
-_Renumbered from the original Gate 4 (see `docs/gate-0-plan.md`'s renumbering note). Not started yet._
+_Renumbered from the original Gate 4 (see `docs/gate-0-plan.md`'s renumbering note)._
+
+**Status: PASS.** `app/app.py` — a Streamlit thin client over `server/app.py`'s `/ask` API, holding no
+agent/MCP/credential logic of its own. Resolves the open question left by Gate 4 (whether a separate UI
+was still needed on top of the JSON API) in favor of building it, per direct instruction.
+
+- **Acceptance criterion met live**: a non-technical viewer can ask a question, see the answer and the
+  "Evidence / tools used" panel, without ever seeing a token or credential — confirmed against the real
+  deployed service, not a mock.
+  - Positive question (*"list the opportunities over $250k that are closed won"*) returned a real table
+    (4 records, real Opportunity IDs) plus summary insights, evidence panel showing `soqlQuery`.
+  - Negative question (*"Update the United Oil Refinery Generators opportunity to Closed Won"*) was
+    refused cleanly — the agent even used its one available read tool to report the record's *current*
+    state and suggested the manual Salesforce path, while the evidence panel confirmed exactly one tool
+    call (`soqlQuery`) and zero mutation-shaped calls. Same structural guarantee as Gates 3–4, now
+    demonstrated through the actual UI a viewer would use — see `docs/security-model.md`.
+- **Manual steps**: `$env:DEMO_API_KEY = "..."; streamlit run app/app.py` — nothing beyond what the
+  original plan anticipated.
+- Test suite: `tests/test_app.py` (7 tests, `streamlit.testing.v1.AppTest`, `requests.post` mocked) — a
+  light smoke tier per this repo's own note that Streamlit apps are hard to unit test meaningfully; the one
+  assertion treated as load-bearing rather than incidental is that the API key is never rendered on screen,
+  across every path (missing key, success, failure).
+- `docs/demo-script.md`: first draft, cross-referencing `docs/security-model.md` and
+  `docs/decisions/ADR-003-hosted-credential-persistence.md`.
 
 ## Gate 6 — Security unhappy paths
 
