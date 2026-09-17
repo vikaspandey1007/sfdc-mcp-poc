@@ -1,0 +1,85 @@
+# Render Blueprint for Gate 4 -- see docs/deployment-guide.md for the full
+# walkthrough (provisioning order, manual steps, and how to verify each
+# piece). Minimum components per Gate 4 Step 2: one Web Service, one Key
+# Value instance (ADR-003) -- no Postgres, no additional microservices, no
+# Kubernetes.
+#
+# Plan names below (`starter`) are placeholders -- confirm the exact current
+# plan identifiers against Render's dashboard/pricing page at deploy time;
+# they weren't independently verified against a live account while writing
+# this file. What IS load-bearing and must not be relaxed: the Key Value
+# instance must be a PAID plan with persistenceMode: journal-snapshot --
+# the free tier has no persistence at all (see docs/decisions/ADR-003).
+
+services:
+  - name: sfdc-mcp-poc-agent
+    type: web
+    runtime: python
+    plan: starter # placeholder -- confirm against Render's current plans
+    region: oregon
+    buildCommand: pip install -e .
+    startCommand: uvicorn server.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      # Fixed by design -- always "hosted" on Render (never "local"; see
+      # auth/credential_store.py's on-Render guard, which refuses to
+      # silently default to the dev-only store anyway).
+      - key: CREDENTIAL_STORE_BACKEND
+        value: hosted
+
+      # Pinned per this project's reproducibility standard (see
+      # docs/gate-0-plan.md D-something / memory feedback_reproducibility_over_adaptivity) --
+      # checked live against Gemini's ListModels API before being set here,
+      # not chosen dynamically at runtime. Update deliberately, not silently.
+      - key: GOOGLE_GENAI_MODEL
+        value: gemini-3.6-flash
+
+      # Must exactly match this service's own external URL + the
+      # server/oauth.py callback route, and must be registered as an
+      # additional callback URL on the Salesforce ECA (Gate 4 Step 3) --
+      # update this if the service is renamed or given a custom domain.
+      - key: OAUTH_REDIRECT_URI
+        value: https://sfdc-mcp-poc-agent.onrender.com/oauth/salesforce/callback
+
+      # Secrets and per-deployment/per-org values -- never committed, set
+      # once in the Render Dashboard after the Blueprint is first applied.
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: SF_MY_DOMAIN_URL
+        sync: false
+      - key: SF_ECA_CONSUMER_KEY
+        sync: false
+      - key: SF_MCP_SERVER_URL
+        sync: false
+      # Shared secret for the /ask endpoint (server/app.py) -- generate with
+      # `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+      - key: DEMO_API_KEY
+        sync: false
+      # Fernet key protecting the token ciphertext in Key Value (ADR-003) --
+      # generate with `python -c "from cryptography.fernet import Fernet;
+      # print(Fernet.generate_key().decode())"`. Never store this anywhere
+      # near the Key Value instance it protects.
+      - key: CREDENTIAL_ENCRYPTION_KEY
+        sync: false
+
+      # Auto-wired from the Key Value instance below -- not manual.
+      - key: REDIS_URL
+        fromService:
+          name: sfdc-mcp-poc-tokens
+          type: keyvalue
+          property: connectionString
+
+  - name: sfdc-mcp-poc-tokens
+    type: keyvalue
+    plan: starter # placeholder -- MUST be a paid plan; free tier has no persistence at all
+    # Internal-only: the web service above is the only intended client, and
+    # it connects over Render's private network via the internal connection
+    # string. Confirm this list's exact semantics (empty vs. omitted) in the
+    # Render dashboard before relying on it -- not independently verified
+    # against a live account while writing this file.
+    ipAllowList: []
+    # noeviction, not the allkeys-lru default: this store holds one small,
+    # precious key (the encrypted token pair), not a cache -- reject a write
+    # under memory pressure rather than silently evicting it.
+    maxmemoryPolicy: noeviction
+    persistenceMode: journal-snapshot
