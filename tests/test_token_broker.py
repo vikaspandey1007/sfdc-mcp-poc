@@ -16,12 +16,13 @@ import hashlib
 import logging
 import threading
 import time
+import types
 import urllib.request
 
 import pytest
 
 from auth import token_broker
-from auth.token_store import StoredTokens
+from auth.credential_store import StoredTokens
 
 
 @pytest.fixture(autouse=True)
@@ -86,6 +87,50 @@ def test_callback_server_rejects_state_mismatch(monkeypatch: pytest.MonkeyPatch)
     thread.join()
 
 
+def test_build_authorization_request_embeds_the_given_redirect_uri() -> None:
+    """Gate 4 Step 3: the redirect_uri must be a parameter, not hardcoded --
+    this is what lets the same function serve both the local callback and a
+    hosted Render callback URL."""
+    request = token_broker.build_authorization_request("https://my-service.onrender.com/oauth/salesforce/callback")
+
+    assert "redirect_uri=https%3A%2F%2Fmy-service.onrender.com%2Foauth%2Fsalesforce%2Fcallback" in request.url
+    assert "code_challenge_method=S256" in request.url
+    assert request.state
+    assert request.code_verifier
+
+
+def test_default_redirect_uri_uses_env_override_when_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OAUTH_REDIRECT_URI", raising=False)
+    assert token_broker.default_redirect_uri() == "http://localhost:8765/callback"
+
+    monkeypatch.setenv("OAUTH_REDIRECT_URI", "https://my-service.onrender.com/oauth/salesforce/callback")
+    assert token_broker.default_redirect_uri() == "https://my-service.onrender.com/oauth/salesforce/callback"
+
+
+def test_exchange_code_for_tokens_sends_the_given_redirect_uri(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_params: dict[str, str] = {}
+
+    def fake_post_token_request(token_url: str, params: dict[str, str]) -> dict:
+        captured_params.update(params)
+        return {"access_token": "a", "refresh_token": "b", "expires_in": 7200, "token_type": "Bearer"}
+
+    monkeypatch.setattr(token_broker, "_post_token_request", fake_post_token_request)
+    monkeypatch.setattr(
+        token_broker, "get_credential_store", lambda: types.SimpleNamespace(save=lambda tokens: None)
+    )
+
+    token_broker.exchange_code_for_tokens(
+        code="a-code",
+        code_verifier="a-verifier",
+        redirect_uri="https://my-service.onrender.com/oauth/salesforce/callback",
+    )
+
+    assert captured_params["redirect_uri"] == "https://my-service.onrender.com/oauth/salesforce/callback"
+    assert captured_params["code"] == "a-code"
+    assert captured_params["code_verifier"] == "a-verifier"
+    assert "client_secret" not in captured_params  # public/PKCE-only client, see ADR-002
+
+
 def test_run_interactive_authorization_never_logs_token_values(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -114,7 +159,9 @@ def test_run_interactive_authorization_never_logs_token_values(
             "token_type": "Bearer",
         },
     )
-    monkeypatch.setattr(token_broker, "save_tokens", lambda tokens: None)
+    monkeypatch.setattr(
+        token_broker, "get_credential_store", lambda: types.SimpleNamespace(save=lambda tokens: None)
+    )
 
     with caplog.at_level(logging.DEBUG):
         result = token_broker.run_interactive_authorization()
@@ -142,7 +189,9 @@ def test_refresh_access_token_never_logs_token_values(
             "token_type": "Bearer",
         },
     )
-    monkeypatch.setattr(token_broker, "save_tokens", lambda tokens: None)
+    monkeypatch.setattr(
+        token_broker, "get_credential_store", lambda: types.SimpleNamespace(save=lambda tokens: None)
+    )
 
     stored = StoredTokens(access_token="old-access-token", refresh_token=old_refresh_token, expires_at=0.0)
 

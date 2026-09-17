@@ -8,16 +8,19 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "keyring>=25.0.0",
     "cryptography>=42.0.0",
+    "redis>=5.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "httpx"]
 
 [tool.setuptools]
 # Explicit, not auto-discovered: the repo has several non-package top-level
 # dirs (salesforce/, docs/, scripts/, tests/) that setuptools' flat-layout
 # auto-discovery otherwise flags as ambiguous "multiple top-level packages".
-packages = ["agent", "auth"]
+packages = ["agent", "auth", "server"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

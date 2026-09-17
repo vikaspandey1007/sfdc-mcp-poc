@@ -504,11 +504,56 @@ for 3B if triggered. Budget the combined range for planning purposes.
 it, before concluding 3A has failed); Gemini free-tier rate limits during
 iterative testing.
 
-### Gate 4 — Thin user interface
+**Renumbering note:** inserting Gate 4 below shifted every later gate down by one (old Gate 4 Thin UI → new
+Gate 5, old Gate 5 Security → new Gate 6, old Gate 6 Policy MCP → new Gate 7 — the headers below and
+section J's implementation order reflect this). Other cross-references to "Gate 5"/"Gate 6" elsewhere in
+this document (sections B–D, G, H) predate this insertion and still use the **original** numbering — they
+were not individually hunted down and rewritten, since several of them (`brief §8 Gate N`) cite the source
+build brief's own fixed section numbers, not this plan's, and a blind find-replace risked conflating the
+two. Treat this note as authoritative if a specific reference elsewhere seems inconsistent, rather than
+either numbering scheme.
+
+### Gate 4 — Secure hosted runtime on Render
+
+**Inserted after Gate 3, ahead of the original Gate 4 (renumbered to Gate 5 below), per a dedicated brief
+given directly for this gate** (not derived from the original brief's gate sequence — recorded here for
+continuity with the rest of this plan). Deploys the proven Gate 3 implementation to Render as a secure,
+repeatable hosted POC: refactors token persistence behind a `CredentialStore` abstraction (local OS keyring
+for dev, Render Key Value for hosted — see `docs/decisions/ADR-003-hosted-credential-persistence.md`),
+makes the OAuth callback environment-aware, and builds the minimum production-shaped entry point
+(`server/app.py`) actually deployed — deliberately not `adk web`, which bundles a development UI.
+- **Tasks**: `auth/credential_store.py` + `auth/local_credential_store.py` + `auth/hosted_credential_store.py`;
+  `render.yaml` Blueprint (one Web Service, one Key Value instance); `server/oauth.py` (hosted PKCE callback
+  routes) + `server/app.py` (health endpoint, startup validation, authenticated `/ask`); register the fourth
+  ECA callback URL.
+- **Dependencies**: Gate 3 stable.
+- **Files changed**: `auth/*.py`, `server/*.py`, `render.yaml`, `docs/deployment-guide.md`,
+  `docs/decisions/ADR-003-*.md`, `salesforce/external-client-app.md`.
+- **Manual steps**: provision the Render Blueprint; set the six `sync: false` secrets in the Dashboard;
+  register the hosted callback URL on the ECA; run the hosted OAuth flow once interactively
+  (`/oauth/salesforce/authorize` in a browser).
+- **Automated tests**: `tests/test_credential_store.py`, `tests/test_local_credential_store.py`,
+  `tests/test_hosted_credential_store.py`, `tests/test_server_app.py`, `tests/test_server_oauth.py` — all
+  offline, fully mocked (fake keyring, fake Redis).
+- **Acceptance criteria**: all eight of the gate's own exit criteria (app live over HTTPS; hosted OAuth+PKCE
+  works; credentials survive restart; real MCP read succeeds; mutation attempt impossible; no credentials in
+  Git/filesystem/logs; deployment reproducible from docs; existing Gate 1–3 tests still pass) — proven live
+  against the real deployed service, not just offline tests.
+- **Effort**: ~1 day (code) + real provisioning/verification time.
+- **Likely failure modes, actually hit**: a real typo in the hand-typed callback URL
+  (`onerender.com` vs `onrender.com`), caught by diffing retrieved metadata against the live service URL;
+  an unanticipated exception type (Gemini free-tier daily quota, a 429) falling through the `/ask` handler's
+  specific exception handling and surfacing as a raw 500 instead of a clean error — both documented in
+  `docs/troubleshooting.md`'s Gate 4 section.
+
+### Gate 5 — Thin user interface
+
+**Renumbered from the original Gate 4** to make room for the Render deployment gate above, inserted by
+explicit instruction. Content unchanged from the original plan below.
 - **Tasks**: build `app/app.py` (Streamlit) — question box, answer display,
   collapsible "evidence/tools used" panel sourced from the agent's tool-call
   trace.
-- **Dependencies**: Gate 3 stable.
+- **Dependencies**: Gate 4 stable.
 - **Files changed**: `app/app.py`, `docs/demo-script.md` (first draft).
 - **Manual steps**: none beyond running `streamlit run app/app.py`.
 - **Automated tests**: light smoke test if practical (Streamlit apps are hard
@@ -519,14 +564,22 @@ iterative testing.
 - **Effort**: 0.5–1 day.
 - **Likely failure modes**: none architecture-specific; standard UI polish time.
 
-### Gate 5 — Security unhappy paths
+**Open question, not yet resolved**: Gate 4 already built an authenticated JSON API (`server/app.py`'s
+`/ask`) as its "smallest secure surface" — whether this gate still needs a separate Streamlit UI, or whether
+that API plus a thin client is sufficient, should be revisited when this gate is actually started, not
+assumed either way here.
+
+### Gate 6 — Security unhappy paths
+
+**Renumbered from the original Gate 5** to make room for the Render deployment gate (now Gate 4). Content
+unchanged from the original plan below.
 - **Tasks**: prove AT-03/AT-04 explicitly; attempt the "move every opp to
   Closed Won" prompt and confirm refusal; test with an expired/revoked token;
   grep repo + logs for secrets; **create a genuinely restricted second
   Salesforce user** (see "Gate 1 review caveat" below) and re-run the
   read/evidence tests as that user to prove Salesforce authorization is
   actually restrictive end-to-end, not just additively unexercised.
-- **Dependencies**: Gate 4 complete (or can run in parallel with Gate 4 once
+- **Dependencies**: Gate 5 complete (or can run in parallel with Gate 5 once
   Gate 3 is stable).
 - **Files changed**: `tests/test_guardrails.py` (expanded), `docs/security-model.md`.
 - **Manual steps**: manually revoke the ECA grant once to test failure
@@ -819,12 +872,14 @@ Gate 1).
 4. **Gate 3** — Build `agent/` ADK integration; attempt native ADK OAuth+PKCE
    first (3A, time-boxed); build the `auth/` token broker only if 3A fails
    reproducibly (3B). Validate via `adk web`. Stop and show evidence either way.
-5. **Gate 4** — Streamlit thin UI. Stop and show evidence.
-6. **Gate 5** — Security unhappy-path tests (AT-01 through AT-06 in full).
+5. **Gate 4** — Secure hosted runtime on Render (inserted here per a dedicated brief given directly for
+   this gate, pushing everything below down by one — see section F's Gate 4 entry). Stop and show evidence.
+6. **Gate 5** — Streamlit thin UI (renumbered from the original Gate 4). Stop and show evidence.
+7. **Gate 6** — Security unhappy-path tests (AT-01 through AT-06 in full, renumbered from the original
+   Gate 5). Stop and show evidence.
+8. **Gate 7** — Policy MCP server + multi-MCP orchestration demo (renumbered from the original Gate 6).
    Stop and show evidence.
-7. **Gate 6** — Policy MCP server + multi-MCP orchestration demo. Stop and
-   show evidence.
-8. Final documentation pass (`docs/architecture.md`, `dfd.md`,
+9. Final documentation pass (`docs/architecture.md`, `dfd.md`,
    `security-model.md`, `threat-model.md`, `demo-script.md`,
    `troubleshooting.md`) consolidated from what was actually built, plus ADRs
    for each decision in section H.
