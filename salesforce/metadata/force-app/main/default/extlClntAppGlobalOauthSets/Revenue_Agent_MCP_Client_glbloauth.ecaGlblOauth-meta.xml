@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtlClntAppGlobalOauthSettings xmlns="http://soap.sforce.com/2006/04/metadata">
     <callbackUrl>http://localhost:8765/callback
-https://oauth.pstmn.io/v1/callback</callbackUrl>
+https://oauth.pstmn.io/v1/callback
+http://localhost:8000/dev-ui</callbackUrl>
     <!-- Consumer Key redacted before commit, see salesforce/external-client-app.md "Redaction" section.
          Real value lives in the local, gitignored .env as SF_ECA_CONSUMER_KEY. -->
     <consumerKey>REDACTED_SEE_ENV_SF_ECA_CONSUMER_KEY</consumerKey>
