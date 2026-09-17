@@ -155,5 +155,21 @@ async def ask(payload: AskRequest) -> AskResponse:
                 "/oauth/salesforce/authorize, then retry."
             },
         )
+    except Exception as exc:
+        # Catch-all fallback for anything not specifically anticipated above --
+        # confirmed necessary in practice, not theoretical: a live test hit
+        # Gemini's free-tier daily quota (google.adk.models.google_llm's
+        # ResourceExhaustedError, a 429), which fell through the specific
+        # Salesforce-shaped except above and surfaced as a raw, unhelpful
+        # plain-text 500 with no detail for the caller. Logs the full
+        # exception server-side (Observability NFR) but never the traceback
+        # to the client -- same "no debug mode" reasoning as everywhere else
+        # in this file, just applied to the general case, not only the
+        # Salesforce-credential one.
+        logger.exception("Unexpected error while handling /ask (%s)", type(exc).__name__)
+        return JSONResponse(
+            status_code=503,
+            content={"error": "The agent is temporarily unavailable. Please retry shortly."},
+        )
 
     return AskResponse(answer="".join(answer_parts), tool_calls=tool_call_names)

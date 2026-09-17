@@ -268,3 +268,50 @@ in this repo's plumbing can force a probabilistic model to add correctly in pros
   summary standalone** — this is a limitation of the current system prompt design (see `agent/prompts.py`),
   not something Gate 3's acceptance criteria required fixing, since criterion 3 only requires the answer to
   *cite real data*, which it does.
+
+## Gate 4
+
+### ECA callback URL typo caught by diffing the retrieved metadata against the real live URL
+
+**What happened:** the fourth callback URL (for the hosted OAuth flow, Step 3) was typed by hand into
+Setup as `https://sfdc-mcp-poc-agent.onerender.com/oauth/salesforce/callback` — an extra "e" in
+"onerender.com". Caught immediately by re-retrieving `ExtlClntAppGlobalOauthSettings` and comparing the
+retrieved value against the real, independently-verified service URL (`curl`'d directly, not assumed) —
+exactly the same "verify the actual retrieved/live state, don't trust what was typed" discipline this repo
+has applied to every other piece of Salesforce config since Gate 1. Fixed in Setup, re-retrieved, confirmed
+matching, before the hosted OAuth flow was ever attempted — a mismatch here would have failed the PKCE
+exchange with a redirect_uri error instead.
+
+### `/ask` returned a raw, unhelpful 500 for an unanticipated exception type (live Gemini quota hit)
+
+**What happened:** the first real `/ask` request against the deployed service returned a plain-text
+`500 Internal Server Error` with no JSON body (`x-render-origin-server: uvicorn` confirmed the request did
+reach the app process — this wasn't a platform-level block). The actual traceback, found in Render's logs
+for the exact request timestamp:
+
+```
+google.adk.models.google_llm._ResourceExhaustedError:
+429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota... limit: 20,
+model: gemini-3.6-flash ... quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier'}}
+```
+
+The same free-tier daily quota (20 requests/day, per-model) already documented for Gate 3's live testing —
+exhausted again during Gate 4's own testing that day, not a new problem. Not a bug in the sense of "wrong
+behavior," but `server/app.py`'s `/ask` handler at the time only caught a specific, anticipated set of
+exception types (`RuntimeError`, `ConnectionError`, `TimeoutError`, `urllib.error.HTTPError`) for the
+"Salesforce credentials unavailable" case — anything else, including this LLM-provider quota error, fell
+through uncaught and surfaced as Starlette's generic default 500, which by design reveals nothing to the
+client (no debug mode) but also gives no useful signal that a retry might help.
+
+**Fix:** added a catch-all `except Exception` below the specific Salesforce-shaped one, logging the full
+exception server-side (`logger.exception`, satisfying the Observability NFR) and returning a clean JSON
+503 (`{"error": "The agent is temporarily unavailable. Please retry shortly."}`) for anything not
+specifically anticipated. Regression test:
+`tests/test_server_app.py::test_ask_returns_503_not_a_raw_500_for_unanticipated_errors`.
+
+**Not fixed, deliberately**: the underlying quota exhaustion itself. This is the same expected, external,
+daily-resetting constraint already documented for Gate 3 — chasing it with another reactive model switch
+(as Gate 3 did once, for a different reason — reproducible 503s, not quota) would trade a temporary,
+self-resolving blocker for reopening the "is this other model reliable" question, and would desynchronize
+the model actually tested from the one pinned in `render.yaml`/`docs/gate-0-plan.md`. Wait for the daily
+reset, or move to a paid billing tier, rather than switching models to dodge a quota window.

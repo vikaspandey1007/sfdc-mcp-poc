@@ -117,6 +117,30 @@ def test_ask_returns_503_not_a_raw_error_when_salesforce_auth_is_unavailable(
     assert "Salesforce authorization" in response.json()["error"]
 
 
+def test_ask_returns_503_not_a_raw_500_for_unanticipated_errors(
+    monkeypatch: pytest.MonkeyPatch, client: TestClient
+) -> None:
+    """Regression test: a live deployment hit Gemini's free-tier daily quota
+    (google.adk's ResourceExhaustedError, a 429) mid-request, which fell
+    through the Salesforce-specific except clause and surfaced as a raw,
+    unhelpful plain-text 500 with no JSON body. Any exception type must now
+    get a clean JSON 503, not just the ones this file anticipated."""
+
+    async def failing_run_async(self, *, user_id: str, session_id: str, **kwargs) -> AsyncIterator[_FakeEvent]:
+        raise ValueError("simulated unanticipated failure, e.g. an LLM provider quota error")
+        yield  # pragma: no cover -- unreachable, makes this a generator function
+
+    monkeypatch.setattr(server_app.Runner, "run_async", failing_run_async)
+
+    response = client.post(
+        "/ask", json={"question": "hi"}, headers={"X-Demo-Api-Key": "unit-test-demo-key"}
+    )
+
+    assert response.status_code == 503
+    assert response.headers["content-type"].startswith("application/json")
+    assert "temporarily unavailable" in response.json()["error"]
+
+
 def test_docs_and_openapi_are_disabled_in_the_hosted_runtime(client: TestClient) -> None:
     for path in ("/docs", "/redoc", "/openapi.json"):
         assert client.get(path).status_code == 404
