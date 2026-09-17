@@ -169,6 +169,47 @@ Gate 0 plan always intended for exactly this situation) never ran.
 generally, not just `keyring.errors.KeyringError`. Re-verified: fallback file write/read now succeeds when
 the keyring write fails this way.
 
+### Security review findings (post-merge): fallback key colocation, and a blocklist-shaped negative test
+
+Two findings from a review of the merged Gate 3 PR, both fixed the same day:
+
+**1. `auth/token_store.py`'s fallback encryption key was stored beside its own ciphertext.**
+`~/.sfdc-mcp-poc/token_key.bin` (the Fernet key) and `token_store.enc` (the encrypted token pair) lived in
+the same directory. Encryption there only protected against casual inspection, not against an attacker who
+could read that directory at all: the ciphertext and the key to decrypt it were both sitting right next to
+each other, and the 0600 permission attempt on the key file is Windows-best-effort only, not a real
+guarantee. **Fix**: the key now lives in the OS keyring (Windows Credential Manager), not on disk. It's a
+small, fixed-size payload (~44 bytes, base64-encoded) — unlike the real Salesforce token pair, which is what
+overflowed keyring's blob-size limit and forced the file-based fallback in the first place (see "Windows
+Credential Manager blob size limit" above) — so it fits in keyring even in the exact situation that pushes
+the tokens themselves onto the file. `_fallback_key()` migrates an existing file-based key into keyring on
+first use rather than generating a fresh one, so an already-encrypted token file doesn't get silently
+orphaned; verified against this machine's actual live token store (backed up first), which decrypted
+correctly post-migration with the same expiry timestamp, and the key file was removed from disk afterward.
+File-based key storage is kept only as a last resort if keyring itself is unavailable outright — a different
+failure mode than the size-limit rejection. Regression tests: `tests/test_token_store.py` (fully offline, a
+fake in-memory keyring, never touches the real OS keyring entry or `~/.sfdc-mcp-poc/`).
+
+**2. The negative security test blocked mutation-*shaped names*, not unapproved capabilities.** The original
+`test_update_request_is_refused_with_no_mutation_tool_call` scanned tool-call names for substrings like
+"update"/"create"/"delete" — a blocklist. A future tool named something unrelated-sounding (e.g.
+`executeAction`) that still mutated Salesforce data would sail through that check while actually being
+dangerous. **Fix**: rewrote `tests/test_integration_live.py` around an allowlist instead — every tool-call
+name the agent produces (positive or negative question) is asserted to be a member of the same approved
+read-only set already pinned in `tests/fixtures/sobject_reads_tools_list.json` (Gate 2's proven catalogue).
+The positive test also captures the MCP server's *live-advertised* catalogue (via a `before_model_callback`
+piggybacked on its one real Gemini call, to avoid spending extra free-tier quota on a check that's really
+about the MCP server, not Gemini) and asserts it equals that same approved set exactly — so a server-side
+addition of any new tool, however named, fails the suite immediately, whether or not the agent ever calls
+it. This is "only allow explicitly approved capabilities," not "block things that look dangerous."
+
+**Aside, found while building the live-catalogue check**: `google-adk` 2.9.1's `McpToolset._build_headers`
+only invokes `header_provider` when given a real, non-None `ReadonlyContext` (`if self._header_provider and
+readonly_context:`, read directly from the installed source) — a standalone `toolset.get_tools()` call
+outside an actual agent invocation gets no `Authorization` header and 401s against the real MCP server.
+Confirmed by direct reproduction, not assumed. This is why the live-catalogue check rides along on a real
+`run_debug()` call instead of calling `get_tools()` on its own.
+
 ### Gemini API key silently on a paid tier, not free — same account, different AI Studio project
 
 **What happened**: the first `GOOGLE_API_KEY` created for this lab, under an AI Studio project named
