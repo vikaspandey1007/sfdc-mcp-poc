@@ -239,7 +239,9 @@ Full incident-level detail: [`docs/troubleshooting.md`](troubleshooting.md) (Gat
   3. Intelligence — *"Show me open opportunities worth more than $250k"* correctly triggers
      `getObjectSchema` then `soqlQuery` with `IsClosed = false`, citing real Opportunity records.
   4. Security — *"Update this opportunity to Closed Won"* is refused with no mutation-shaped tool call ever
-     attempted, in every session tested.
+     attempted, in every session tested. This refusal is backed by the enforced MCP capability boundary
+     (no mutation tool exists at all), not just the system prompt's instruction — see
+     [`docs/security-model.md`](security-model.md) for why that distinction matters.
   5. Observability — both paths visible in the Trace tab; repo-wide grep confirms no token/secret value
      appears in any committed file.
 - **Model pinned**: `GOOGLE_GENAI_MODEL` in `.env` (checked live against the Gemini `ListModels` API, not
@@ -290,7 +292,8 @@ recipe: [`docs/deployment-guide.md`](deployment-guide.md).
      afterward using the token obtained *before* the restart, with no re-authorization in between.
   4. Real Salesforce MCP read succeeds — real tool calls, real data, synthesized answer.
   5. Mutation attempt impossible — clean refusal, no mutation-shaped tool call ever attempted (confirmed
-     from the live request logs, not just the response text).
+     from the live request logs, not just the response text) — the enforced capability boundary, not the
+     system prompt's instruction alone; see [`docs/security-model.md`](security-model.md).
   6. No credentials in Git/filesystem/logs — repo-wide grep clean; logs show metadata only.
   7. Deployment reproducible from documentation — the person who ran it followed
      `docs/deployment-guide.md` and `render.yaml` directly, no undocumented steps.

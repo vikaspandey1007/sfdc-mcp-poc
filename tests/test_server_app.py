@@ -141,6 +141,35 @@ def test_ask_returns_503_not_a_raw_500_for_unanticipated_errors(
     assert "temporarily unavailable" in response.json()["error"]
 
 
+def test_ask_catch_all_handler_never_logs_a_secret_embedded_in_the_exception(
+    monkeypatch: pytest.MonkeyPatch, client: TestClient, caplog: "pytest.LogCaptureFixture"
+) -> None:
+    """End-to-end version of tests/test_log_redaction.py's core case,
+    through the real /ask code path: an unanticipated exception whose own
+    message embeds a live secret must not leak that secret into the logs."""
+    monkeypatch.setenv("GOOGLE_API_KEY", "SECRET-GOOGLE-KEY-endtoend")
+
+    async def failing_run_async(self, *, user_id: str, session_id: str, **kwargs) -> AsyncIterator[_FakeEvent]:
+        raise ValueError(
+            "simulated third-party error: https://generativelanguage.googleapis.com/v1/models"
+            "?key=SECRET-GOOGLE-KEY-endtoend"
+        )
+        yield  # pragma: no cover -- unreachable, makes this a generator function
+
+    monkeypatch.setattr(server_app.Runner, "run_async", failing_run_async)
+
+    import logging
+
+    with caplog.at_level(logging.ERROR):
+        response = client.post(
+            "/ask", json={"question": "hi"}, headers={"X-Demo-Api-Key": "unit-test-demo-key"}
+        )
+
+    assert response.status_code == 503
+    assert "SECRET-GOOGLE-KEY-endtoend" not in caplog.text
+    assert "SECRET-GOOGLE-KEY-endtoend" not in response.text
+
+
 def test_docs_and_openapi_are_disabled_in_the_hosted_runtime(client: TestClient) -> None:
     for path in ("/docs", "/redoc", "/openapi.json"):
         assert client.get(path).status_code == 404

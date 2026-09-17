@@ -46,6 +46,7 @@ from pydantic import BaseModel
 from agent.agent import root_agent
 from agent.config import get_settings
 from auth.credential_store import get_credential_store
+from server.log_redaction import log_exception_redacted, redact
 from server.oauth import router as oauth_router
 
 logging.basicConfig(
@@ -147,7 +148,12 @@ async def ask(payload: AskRequest) -> AskResponse:
         # rejected a refresh_token outright (revoked). All three mean the
         # Salesforce side of this integration needs re-authorization, not a
         # bug in this request -- surfaced as 503, not a raw 500/stack trace.
-        logger.warning("Salesforce authorization unavailable during /ask (%s: %s)", type(exc).__name__, exc)
+        # exc's message is logged through redact() rather than raw -- ConnectionError's
+        # message includes the MCP server URL (never credential-bearing by this app's
+        # own design, but redacted anyway as defense-in-depth, see server/log_redaction.py).
+        logger.warning(
+            "Salesforce authorization unavailable during /ask (%s: %s)", type(exc).__name__, redact(str(exc))
+        )
         return JSONResponse(
             status_code=503,
             content={
@@ -166,7 +172,15 @@ async def ask(payload: AskRequest) -> AskResponse:
         # to the client -- same "no debug mode" reasoning as everywhere else
         # in this file, just applied to the general case, not only the
         # Salesforce-credential one.
-        logger.exception("Unexpected error while handling /ask (%s)", type(exc).__name__)
+        #
+        # Deliberately NOT logger.exception()/exc_info=True: that bypasses
+        # redaction entirely by re-serializing the raw exception object
+        # independently of any message string passed to the logging call --
+        # see server/log_redaction.py's docstring. This exception type is,
+        # by definition, one this file didn't anticipate, so its message
+        # can't be assumed safe the way the specific Salesforce-shaped ones
+        # above can.
+        log_exception_redacted(logger, "Unexpected error while handling /ask", exc)
         return JSONResponse(
             status_code=503,
             content={"error": "The agent is temporarily unavailable. Please retry shortly."},
