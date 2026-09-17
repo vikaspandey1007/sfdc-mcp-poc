@@ -1,0 +1,11 @@
+{
+  "_source": "Reconstructed from Gate 2's captured tools/list evidence (salesforce/postman-verification.md, Evidence #2). The source doc stores this as a markdown table, not a raw JSON payload, so this fixture pins that documented shape rather than replaying a byte-identical captured response.",
+  "tools": [
+    { "name": "soqlQuery", "description": "Primary read path -- arbitrary SOQL SELECT", "annotations": { "readOnlyHint": true, "destructiveHint": false } },
+    { "name": "find", "description": "Cross-object SOSL text search", "annotations": { "readOnlyHint": true, "destructiveHint": false } },
+    { "name": "getRelatedRecords", "description": "Traverse relationships from a known record", "annotations": { "readOnlyHint": true, "destructiveHint": false } },
+    { "name": "listRecentSobjectRecords", "description": "Recently viewed records by object type", "annotations": { "readOnlyHint": true, "destructiveHint": false } },
+    { "name": "getUserInfo", "description": "Current user identity/role/preferences", "annotations": { "readOnlyHint": true, "destructiveHint": false } },
+    { "name": "getObjectSchema", "description": "Object/field metadata for query construction", "annotations": { "readOnlyHint": true, "destructiveHint": false } }
+  ]
+}

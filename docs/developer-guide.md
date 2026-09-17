@@ -213,8 +213,47 @@ paraphrased) in [`salesforce/postman-verification.md`](../salesforce/postman-ver
 
 ## Gate 3 — Google ADK + Gemini
 
-_Not started yet. Will document whichever of 3A (native OAuth) or 3B (token broker fallback) actually ends up
-working, per `docs/gate-0-plan.md` section F — not both, whichever is real._
+**Status: PASS.** Branch 3A (native ADK OAuth) was attempted first per plan and failed reproducibly; Branch
+3B (a hand-built OAuth token broker) was built and proven end-to-end against the real org and real Gemini
+API. Full decision record: [`docs/decisions/ADR-002-oauth-authentication-strategy.md`](decisions/ADR-002-oauth-authentication-strategy.md).
+Full incident-level detail: [`docs/troubleshooting.md`](troubleshooting.md) (Gate 3 section).
+
+- **3A result — FAIL, before any OAuth popup appeared.** `google-adk` 2.9.1's OAuth2 `AuthHandler`
+  unconditionally requires a `client_secret`, but the Salesforce ECA is a deliberate public/PKCE-only client
+  with no secret. No fake client secret was introduced to bypass the check. Root cause traced to the
+  installed package's source, not assumed from docs.
+- **3B built and proven working**: `auth/token_broker.py` performs a real Authorization Code + PKCE exchange
+  against the ECA; `auth/token_store.py` persists tokens via OS keyring, falling back to a Fernet-encrypted
+  file outside the repo tree when Windows Credential Manager's blob-size limit rejects a real Salesforce
+  token pair (hit and fixed this session — see troubleshooting.md). `agent/mcp_config.py` wires
+  `McpToolset(header_provider=...)` to source a dynamic `Authorization: Bearer` header from the broker.
+- **New setup step found, not in Gate 0's original plan**: `adk web`'s default OAuth redirect URI
+  (`http://localhost:8000/dev-ui`) had to be registered on the ECA before 3A could even be attempted — see
+  `salesforce/external-client-app.md`'s Callback URL section (now three URLs, one per gate/branch).
+- **All five Gate 3 verification criteria demonstrated, reproduced across two fresh `adk web` sessions plus
+  an automated integration test** (`pytest --run-integration tests/test_integration_live.py`, which passed
+  against the live org and live Gemini API):
+  1. Connectivity — `McpToolset` discovers `sobject-reads`' six tools.
+  2. Identity — the token broker's real PKCE exchange succeeds; Windows Credential Manager fallback verified
+     with real tokens.
+  3. Intelligence — *"Show me open opportunities worth more than $250k"* correctly triggers
+     `getObjectSchema` then `soqlQuery` with `IsClosed = false`, citing real Opportunity records.
+  4. Security — *"Update this opportunity to Closed Won"* is refused with no mutation-shaped tool call ever
+     attempted, in every session tested.
+  5. Observability — both paths visible in the Trace tab; repo-wide grep confirms no token/secret value
+     appears in any committed file.
+- **Model pinned**: `GOOGLE_GENAI_MODEL` in `.env` (checked live against the Gemini `ListModels` API, not
+  guessed from search results, which returned unreliable SEO content for model names this session).
+  `gemini-3.8-flash` hit two reproducible 503s at the answer-synthesis step; switching to `gemini-3.6-flash`
+  (same live-verified list, also non-preview/non-`-latest`) succeeded immediately and reproducibly. Not
+  enough data points to blame the specific model version for the 503s, but the switch unblocked progress.
+- **Known caveat, not a Gate 3 blocker**: Gemini's own prose summary of a tool result can contain arithmetic
+  errors even when the underlying data/tool calls are correct (see troubleshooting.md, "Gemini synthesis
+  arithmetic error") — consumers should verify a stated total against the accompanying table, not trust the
+  narrative summary standalone.
+- Test suite: `tests/test_mcp_connection.py`, `tests/test_agent.py`, `tests/test_token_broker.py` (16 unit
+  tests, fully offline, pinned against the installed `google-adk` 2.9.1 API); `tests/test_integration_live.py`
+  (2 tests, opt-in via `--run-integration`, hits the real org/Gemini).
 
 ## Gate 4 — Thin UI
 

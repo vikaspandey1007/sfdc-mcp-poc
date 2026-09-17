@@ -435,6 +435,18 @@ sfdc-mcp-poc/
 
 ### Gate 3 — Google ADK + Gemini
 
+**Actual outcome (Gate 3, done): 3A attempted first as planned, failed reproducibly before any OAuth
+negotiation began (see D2's correction above and ADR-002), 3B built and passed all five verification
+criteria against the real org and live Gemini API, reproduced across two fresh `adk web` sessions plus an
+automated integration test.** One setup gap not anticipated below: `adk web`'s default OAuth redirect URI
+(`http://localhost:8000/dev-ui`) needed registering on the ECA before 3A could even be attempted at all —
+not one of the two callback URLs this plan already accounted for. Model selection also needed a live
+`ListModels` check against the real Gemini API rather than search, since this session's own web search for
+model names returned unreliable results; `gemini-3.8-flash` hit two reproducible 503s at the
+answer-synthesis step, switching to `gemini-3.6-flash` (same live-checked list) resolved it, though with too
+few data points to blame the model version specifically. Full detail: `docs/developer-guide.md` (Gate 3
+section), `docs/troubleshooting.md`, `docs/decisions/ADR-002-oauth-authentication-strategy.md`.
+
 Split into two acceptance branches. **3A is attempted first; 3B is only built
 if 3A fails reproducibly.** This ordering follows directly from the brief's
 own Gate 0 rule not to invent glue code ahead of a proven incompatibility.
@@ -640,7 +652,25 @@ Credit exposure before any broader rollout.
 **Options:** (a) ADK's native `auth_scheme`/`auth_credential` OAuth+PKCE flow; (b) one-time external OAuth token broker feeding static/dynamic Bearer headers into `McpToolset`.
 **Recommendation (revised): (a) first — native ADK OAuth+PKCE, tested hands-on in Gate 3A; (b) only as a tested fallback if (a) fails reproducibly (Gate 3B).**
 
-**Rationale:** The original draft recommended going straight to the broker
+**Correction (Gate 3, resolves the "genuinely unknown until tested" confidence note below):** (a) was
+attempted and failed reproducibly, but not in the shape either the original draft or the revised rationale
+anticipated. The risk-awareness research below correctly flagged `google-adk`'s native OAuth+PKCE support as
+young and cited three specific open issues (`#2168`, `#2615`, `#3331`) as the failure modes to watch for.
+None of those occurred. Instead, `google-adk` 2.9.1's OAuth2 `AuthHandler` raised
+`ValueError: ... requires both client_id and client_secret in auth_credential.oauth2` before any OAuth
+negotiation with Salesforce even began — a structural gap (no support for a secret-less/PKCE-only public
+client at all) rather than a hang, an ignored config, or an ordering defect. `#2168` (the issue this plan's
+confidence was most directly pinned to) had in fact been fixed in ADK's Aug 2026 FixIt week, ahead of the
+2.9.1 installed here — the empirical test still caught a real, different incompatibility that closing that
+one issue didn't. This is exactly the outcome the "prove it, don't assume it" instruction in the rationale
+below was for: the specific failure shape was wrong, but attempting (a) first rather than skipping to (b) on
+suspicion alone was still the right call, and going first straight to (b) would have hidden this exact
+finding. (b) was then built as Gate 3B and passed all five Gate 3 verification criteria against the real org
+and live Gemini API. Full evidence: `docs/decisions/ADR-002-oauth-authentication-strategy.md`,
+`docs/troubleshooting.md` ("Branch 3A result: FAIL").
+
+**Rationale (original, ordering recommendation held, specific predicted failure shape superseded above):**
+The original draft recommended going straight to the broker
 (b), reasoning from documentation/issue research: ADK's native PKCE support
 merged only 2026-05-08, a directly relevant issue (authenticated remote
 Streamable-HTTP hang, #2615) is still open, and ADK's own official
@@ -720,7 +750,7 @@ specific toggle, only a read-back via the `McpServerAccess` Tooling object (see 
 
 ## I. Open questions
 
-Items 1–4 were resolved during Gate 0 (see findings below). Item 5 remains open.
+Items 1–4 were resolved during Gate 0 (see findings below). Item 5 was resolved during Gate 3.
 
 1. ~~Org verification method~~ **Resolved.** Re-authenticated via
    `sf org login web`; queried the org directly.
@@ -758,9 +788,15 @@ Items 1–4 were resolved during Gate 0 (see findings below). Item 5 remains ope
    found no such CLI/API path in official documentation.
 4. ~~Gate 2 diagnostic client~~ **Resolved.** Postman, per Salesforce's
    documented manual OAuth 2.0 PKCE configuration (section C step 8).
-5. **Google AI Studio key** — do you want to create the free API key now (no
-   GCP project required, aistudio.google.com/apikey) so Gate 3 isn't blocked
-   later, or handle it when we reach Gate 3? Still open — not a Gate 1 blocker.
+5. ~~Google AI Studio key~~ **Resolved in Gate 3.** Created via
+   aistudio.google.com/apikey. Hit a real cost-tier pitfall along the way: the
+   first project the key was created under (`sfdc-mcp-poc`) turned out to be
+   "Tier 1 · Postpay, Prepay required," not free; a separate "Default Gemini
+   Project" on the same account was genuine free tier (confirmed via AI
+   Studio's own Projects page, not assumed). Switched `GOOGLE_API_KEY` to that
+   project's key. `GOOGLE_GENAI_MODEL` was checked live against the Gemini
+   `ListModels` API rather than search (unreliable results this session) and
+   pinned in `.env`, not chosen dynamically per run.
 
 **Operational note discovered during this check**: `sf data query` (and other
 `sf` subcommands that shell out internally) fail under this machine's Git

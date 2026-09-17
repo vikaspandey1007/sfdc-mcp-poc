@@ -3,10 +3,21 @@ name = "sfdc-mcp-poc"
 version = "0.1.0"
 description = "Revenue Prioritisation Agent lab: Salesforce Hosted MCP + Google ADK/Gemini"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "google-adk[mcp]>=2.8.0",
+    "python-dotenv>=1.0.0",
+    "keyring>=25.0.0",
+    "cryptography>=42.0.0",
+]
 
 [project.optional-dependencies]
 dev = ["pytest"]
+
+[tool.setuptools]
+# Explicit, not auto-discovered: the repo has several non-package top-level
+# dirs (salesforce/, docs/, scripts/, tests/) that setuptools' flat-layout
+# auto-discovery otherwise flags as ambiguous "multiple top-level packages".
+packages = ["agent", "auth"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

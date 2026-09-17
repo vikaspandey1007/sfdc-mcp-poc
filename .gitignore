@@ -31,3 +31,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# adk web local runtime state (session/artifact storage, conversation history)
+.adk/
+agent/.adk/

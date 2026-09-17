@@ -42,7 +42,7 @@ Confirmed settings, read directly from the retrieved files (not re-typed from me
 | Refresh token validity | `30` `Days`, policy type `SpecificInactivity` | `ExtlClntAppOauthConfigurablePolicies.refreshTokenValidityPeriod`/`Unit`/`refreshTokenPolicyType` |
 | Permitted users | `AdminApprovedPreAuthorized` | `ExtlClntAppOauthConfigurablePolicies.permittedUsersPolicyType` |
 | Pre-authorization Permission Set | `Revenue_Agent_Read_Access` | `ExtlClntAppOauthConfigurablePolicies.commaSeparatedPermissionSet` |
-| Callback URL(s) | `http://localhost:8765/callback` and `https://oauth.pstmn.io/v1/callback` (both present, confirmed via re-retrieve) | `ExtlClntAppGlobalOauthSettings.callbackUrl` |
+| Callback URL(s) | `http://localhost:8765/callback`, `https://oauth.pstmn.io/v1/callback`, and `http://localhost:8000/dev-ui` (all three present, confirmed via re-retrieve) | `ExtlClntAppGlobalOauthSettings.callbackUrl` |
 
 **One flag, not yet resolved by a metadata file read alone:** `isCodeCredFlowEnabled = false`. Believed to
 refer to a separate certificate-based flow (not the Authorization Code + PKCE flow this lab uses — that's
@@ -85,7 +85,17 @@ mandatory per the brief, not a formality.
 
 ## Callback URL — done
 
-Both `http://localhost:8765/callback` and `https://oauth.pstmn.io/v1/callback` are registered, confirmed by
-re-retrieving `ExtlClntAppGlobalOauthSettings` after the change (Salesforce stores multiple callback URLs
-newline-separated within the single `<callbackUrl>` element). Gate 2 can use the Postman callback without any
-further ECA edits.
+All three callback URLs are registered, confirmed by re-retrieving `ExtlClntAppGlobalOauthSettings` after
+each change (Salesforce stores multiple callback URLs newline-separated within the single `<callbackUrl>`
+element):
+
+- `http://localhost:8765/callback` — the Gate 3B token broker's own one-time interactive PKCE exchange
+  (`auth/token_broker.py`).
+- `https://oauth.pstmn.io/v1/callback` — Gate 2's Postman verification.
+- `http://localhost:8000/dev-ui` — added during Gate 3 Step 1 for `adk web`'s native OAuth flow (Branch 3A).
+  `adk web` uses this as its default redirect URI, which is not the same as either of the other two and was
+  not registered by Gate 0's plan — this gap was found and fixed before 3A was attempted. Kept registered
+  even after 3A failed and 3B became the actual auth path, since it's harmless to leave present and removing
+  it isn't necessary for 3B's correctness.
+
+Gate 2 and Gate 3 can each use their own callback without any further ECA edits.
