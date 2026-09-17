@@ -5,16 +5,26 @@ front of an audience, not treated as final).
 
 ## Setup (before the audience arrives)
 
-1. Confirm the hosted service is live: `curl https://sfdc-mcp-poc-agent.onrender.com/health` should return
-   `{"status":"ok"}`.
-2. Set `DEMO_API_KEY` in your own shell (never typed into the UI) — get the current value from wherever you
-   store it, not from this document:
-   ```powershell
-   $env:DEMO_API_KEY = "..."
-   ```
-3. Run the thin UI: `streamlit run app/app.py` — opens at `http://localhost:8501`.
-4. Do one throwaway warm-up question yourself first, off-screen, so the first thing the audience sees isn't
+The UI is deployed to Render (`sfdc-mcp-poc-ui`), not just run locally — added specifically so this demo
+doesn't depend on having your own laptop (e.g. presenting at a client site). Running it locally via
+`streamlit run app/app.py` still works as a fallback if you do have your laptop and prefer that.
+
+1. Confirm both hosted services are live: `curl https://sfdc-mcp-poc-agent.onrender.com/health` should
+   return `{"status":"ok"}`; open `https://sfdc-mcp-poc-ui.onrender.com` in a browser and confirm it shows
+   the access-code prompt (not an error about missing configuration).
+2. Open the UI's URL and enter the **access code** (`UI_ACCESS_CODE` — get the current value from wherever
+   you store it, not from this document; it's separate from `DEMO_API_KEY` and is never typed by the
+   audience). This unlocks the question box for your browser session.
+3. Do one throwaway warm-up question yourself first, off-screen, so the first thing the audience sees isn't
    a cold-start hiccup.
+
+**Local fallback**, only if you have your own laptop and prefer it over the hosted UI: set both
+`DEMO_API_KEY` and `UI_ACCESS_CODE` in your own shell, then `streamlit run app/app.py` (opens at
+`http://localhost:8501`):
+
+```powershell
+$env:DEMO_API_KEY = "..."; $env:UI_ACCESS_CODE = "..."; streamlit run app/app.py
+```
 
 ## The demo itself
 
@@ -42,9 +52,10 @@ front of an audience, not treated as final).
 - Don't demo the OAuth authorization flow itself (`/oauth/salesforce/authorize`) unless you specifically
   want to show the Salesforce login screen — it's a one-time setup step, not part of the regular demo loop,
   and re-running it unnecessarily risks an awkward mid-demo Salesforce login prompt.
-- Don't reveal `DEMO_API_KEY` on screen, in a terminal history, or in a shared screen recording — it's set
-  in your own shell's environment, never visible in the Streamlit UI itself (verified in
-  `tests/test_app.py`).
+- Don't reveal `DEMO_API_KEY` or `UI_ACCESS_CODE` on screen, in a terminal history, or in a shared screen
+  recording — neither is ever visible in the Streamlit UI itself (verified in `tests/test_app.py`), but the
+  access-code prompt on `sfdc-mcp-poc-ui` is exactly the kind of thing that ends up in a screen-share
+  recording if you type it while sharing your screen. Enter it before you start sharing.
 - Don't promise "this proves the Salesforce user's access is restricted end-to-end" — that's Gate 6's job
   (a genuinely restricted test user), not something this demo currently proves. What it does prove is that
   the MCP tool catalogue itself has no write capability, which is a real and strong claim, but a narrower
@@ -56,8 +67,9 @@ front of an audience, not treated as final).
   limit or brief outage) — wait a few seconds and retry once, live, as part of the narrative ("even
   production LLM APIs have the occasional blip — here's what a graceful failure looks like instead of a
   crash"), rather than panicking.
-- **The UI shows "DEMO_API_KEY is not configured"**: you forgot step 2 above — set it and restart
-  `streamlit run app/app.py`.
+- **The UI shows "UI_ACCESS_CODE is not configured" or "DEMO_API_KEY is not configured"**: those are set on
+  Render's dashboard for `sfdc-mcp-poc-ui` (hosted) or in your own shell (local fallback) — check step 2/3
+  of `docs/deployment-guide.md`'s provisioning order, or the local-fallback command above.
 - **The answer looks wrong / doesn't cite real data**: check the evidence panel first — if `soqlQuery` ran
   and returned data, the *tool layer* worked; a wrong-looking answer is more likely the LLM's own synthesis
   (see `docs/troubleshooting.md`'s "Gemini synthesis arithmetic error" for a known example of this

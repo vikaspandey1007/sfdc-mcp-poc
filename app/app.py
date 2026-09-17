@@ -10,13 +10,24 @@ Gate 5's acceptance criterion is that a non-technical viewer can ask a
 question and see the answer and evidence without ever seeing a token or
 credential.
 
+This app holds DEMO_API_KEY server-side and uses it on behalf of *any*
+visitor -- fine when only the presenter can reach it (localhost), but once
+this is reachable on a public URL (Render, for demoing without a laptop --
+see docs/demo-script.md), it would otherwise be an open, unauthenticated
+proxy to the paid Gemini/Salesforce backend for anyone who finds the link.
+UI_ACCESS_CODE gates that: a one-time passcode per browser session,
+required in every environment (local and hosted alike) rather than only
+enforced when "deployed" -- same "fail closed, never treat missing config
+as no key required" posture as server/app.py's own DEMO_API_KEY check.
+
 Run locally (the presenter sets these in their own shell first):
-    export DEMO_API_KEY=...          # PowerShell: $env:DEMO_API_KEY = "..."
+    export DEMO_API_KEY=...  UI_ACCESS_CODE=...     # PowerShell: $env:NAME = "..."
     streamlit run app/app.py
 """
 
 from __future__ import annotations
 
+import hmac
 import os
 from typing import Any
 
@@ -33,6 +44,10 @@ def agent_api_url() -> str:
 
 def demo_api_key() -> str | None:
     return os.environ.get("DEMO_API_KEY")
+
+
+def ui_access_code() -> str | None:
+    return os.environ.get("UI_ACCESS_CODE")
 
 
 def ask_agent(question: str) -> dict[str, Any]:
@@ -71,6 +86,25 @@ def ask_agent(question: str) -> dict[str, Any]:
 def render() -> None:
     st.set_page_config(page_title="Revenue Prioritisation Agent", page_icon="\U0001f4ca")
     st.title("Revenue Prioritisation Agent")
+
+    configured_code = ui_access_code()
+    if not configured_code:
+        st.error(
+            "UI_ACCESS_CODE is not configured for this deployment -- refusing to render an "
+            "unauthenticated UI that would use DEMO_API_KEY on behalf of any visitor."
+        )
+        return
+
+    if not st.session_state.get("unlocked"):
+        entered_code = st.text_input("Access code", type="password")
+        if st.button("Unlock", disabled=not entered_code):
+            if hmac.compare_digest(entered_code, configured_code):
+                st.session_state["unlocked"] = True
+                st.rerun()
+            else:
+                st.error("Incorrect access code.")
+        return
+
     st.caption(f"Talking to {agent_api_url()}")
 
     if not demo_api_key():
