@@ -42,7 +42,7 @@ Confirmed settings, read directly from the retrieved files (not re-typed from me
 | Refresh token validity | `30` `Days`, policy type `SpecificInactivity` | `ExtlClntAppOauthConfigurablePolicies.refreshTokenValidityPeriod`/`Unit`/`refreshTokenPolicyType` |
 | Permitted users | `AdminApprovedPreAuthorized` | `ExtlClntAppOauthConfigurablePolicies.permittedUsersPolicyType` |
 | Pre-authorization Permission Set | `Revenue_Agent_Read_Access` | `ExtlClntAppOauthConfigurablePolicies.commaSeparatedPermissionSet` |
-| Callback URL(s) | `http://localhost:8765/callback`, `https://oauth.pstmn.io/v1/callback`, and `http://localhost:8000/dev-ui` (all three present, confirmed via re-retrieve) | `ExtlClntAppGlobalOauthSettings.callbackUrl` |
+| Callback URL(s) | `http://localhost:8765/callback`, `https://oauth.pstmn.io/v1/callback`, `http://localhost:8000/dev-ui`, and `https://sfdc-mcp-poc-agent.onrender.com/oauth/salesforce/callback` (all four present, confirmed via re-retrieve) | `ExtlClntAppGlobalOauthSettings.callbackUrl` |
 
 **One flag, not yet resolved by a metadata file read alone:** `isCodeCredFlowEnabled = false`. Believed to
 refer to a separate certificate-based flow (not the Authorization Code + PKCE flow this lab uses — that's
@@ -85,7 +85,7 @@ mandatory per the brief, not a formality.
 
 ## Callback URL — done
 
-All three callback URLs are registered, confirmed by re-retrieving `ExtlClntAppGlobalOauthSettings` after
+All four callback URLs are registered, confirmed by re-retrieving `ExtlClntAppGlobalOauthSettings` after
 each change (Salesforce stores multiple callback URLs newline-separated within the single `<callbackUrl>`
 element):
 
@@ -97,5 +97,11 @@ element):
   not registered by Gate 0's plan — this gap was found and fixed before 3A was attempted. Kept registered
   even after 3A failed and 3B became the actual auth path, since it's harmless to leave present and removing
   it isn't necessary for 3B's correctness.
+- `https://sfdc-mcp-poc-agent.onrender.com/oauth/salesforce/callback` — added for Gate 4 Step 3, the hosted
+  OAuth callback route (`server/oauth.py`) on the deployed Render service. Caught and fixed a real typo the
+  first time this was entered by hand in Setup (`onerender.com` instead of `onrender.com`) by re-retrieving
+  and diffing against the actual live service URL rather than trusting the paste — a mismatch here would
+  have failed the hosted PKCE exchange with a redirect_uri error, not a security issue but a real
+  reproduce-before-trusting lesson.
 
-Gate 2 and Gate 3 can each use their own callback without any further ECA edits.
+Gate 2, Gate 3, and Gate 4 can each use their own callback without any further ECA edits.
