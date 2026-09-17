@@ -255,17 +255,65 @@ Full incident-level detail: [`docs/troubleshooting.md`](troubleshooting.md) (Gat
   tests, fully offline, pinned against the installed `google-adk` 2.9.1 API); `tests/test_integration_live.py`
   (2 tests, opt-in via `--run-integration`, hits the real org/Gemini).
 
-## Gate 4 — Thin UI
+## Gate 4 — Secure hosted runtime on Render
 
-_Not started yet._
+**Status: PASS.** Inserted after Gate 3 per a dedicated brief given directly for this gate (not the original
+`docs/gate-0-plan.md` sequence — see that file's renumbering note in section F). Deploys the proven Gate 3
+implementation to Render as a secure, repeatable hosted POC. Full decision record:
+[`docs/decisions/ADR-003-hosted-credential-persistence.md`](decisions/ADR-003-hosted-credential-persistence.md).
+Full incident-level detail: [`docs/troubleshooting.md`](troubleshooting.md) (Gate 4 section). Deployment
+recipe: [`docs/deployment-guide.md`](deployment-guide.md).
 
-## Gate 5 — Security unhappy paths
+- **`CredentialStore` abstraction** (`auth/credential_store.py`): `LocalCredentialStore` (OS keyring,
+  refactored from Gate 3B's `token_store.py`, hardened to raise instead of silently falling back to a
+  colocated key+ciphertext scheme) and `HostedCredentialStore` (Render Key Value), selected via a factory
+  that refuses to silently default to the dev-only Local store when running on Render.
+- **Hosted persistence**: Render Key Value, paid tier, Journal + Snapshot persistence — chosen over Render
+  Disks (disqualified: filesystem-based), PostgreSQL (viable but heavier than one blob needs), and an
+  external secrets manager (disproportionate infra for a POC). The encryption key lives in a Render
+  environment variable, never colocated with the ciphertext it protects.
+- **Hosted OAuth**: `auth/token_broker.py`'s redirect_uri is now a parameter, not a hardcoded local
+  constant; `server/oauth.py` adds `/oauth/salesforce/authorize` + `/callback`, using the same Key Value
+  instance (short TTL, single-use) to bridge the two-request PKCE handshake statelessly. Local callback
+  flow unchanged. Fourth ECA callback URL registered (a real typo — `onerender.com` vs `onrender.com` — was
+  caught by diffing the retrieved metadata against the live service URL before it could break the flow).
+- **Production-shaped entry point** (`server/app.py`), not `adk web`: `GET /health` (unauthenticated,
+  reveals nothing); `POST /ask` (authenticated via `X-Demo-Api-Key` — the smallest secure surface, agreed
+  before building it) runs one question and returns the synthesized answer + tool-call trace; fails fast at
+  startup on missing config; a live Gemini quota error initially fell through to a raw 500 (fixed with a
+  catch-all handler, now a clean 503 for anything unanticipated); dev docs (`/docs`, `/redoc`) disabled.
+- **All eight Gate 4 exit criteria demonstrated live against the real deployed service**
+  (`https://sfdc-mcp-poc-agent.onrender.com`), not just offline tests:
+  1. Running on Render over HTTPS — confirmed (`curl`'d directly).
+  2. Hosted OAuth + PKCE works — real token exchange completed, logged server-side.
+  3. Credentials survive restart — a manual restart was triggered, then a real `/ask` call succeeded
+     afterward using the token obtained *before* the restart, with no re-authorization in between.
+  4. Real Salesforce MCP read succeeds — real tool calls, real data, synthesized answer.
+  5. Mutation attempt impossible — clean refusal, no mutation-shaped tool call ever attempted (confirmed
+     from the live request logs, not just the response text).
+  6. No credentials in Git/filesystem/logs — repo-wide grep clean; logs show metadata only.
+  7. Deployment reproducible from documentation — the person who ran it followed
+     `docs/deployment-guide.md` and `render.yaml` directly, no undocumented steps.
+  8. Existing Gate 1–3 tests still pass — full offline suite green throughout.
+- Test suite: `tests/test_credential_store.py`, `tests/test_local_credential_store.py`,
+  `tests/test_hosted_credential_store.py`, `tests/test_server_app.py`, `tests/test_server_oauth.py` — all
+  offline, fully mocked (fake keyring, fake Redis), no live dependency.
+- **Not yet done**: a live test of AT-05 (deliberately revoking the Salesforce grant to prove the failure
+  path) — verified at unit level (mocked `RuntimeError`/`ConnectionError`/`HTTPError` → clean 503) but not
+  yet reproduced against a real revoked credential, since doing so would interrupt the now-working demo
+  deployment. Flagged here rather than silently assumed equivalent to a live test.
 
-_Not started yet._
+## Gate 5 — Thin UI
 
-## Gate 6 — Policy MCP server
+_Renumbered from the original Gate 4 (see `docs/gate-0-plan.md`'s renumbering note). Not started yet._
 
-_Not started yet._
+## Gate 6 — Security unhappy paths
+
+_Renumbered from the original Gate 5. Not started yet._
+
+## Gate 7 — Policy MCP server
+
+_Renumbered from the original Gate 6. Not started yet._
 
 ---
 
