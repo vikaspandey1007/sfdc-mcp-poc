@@ -315,3 +315,39 @@ daily-resetting constraint already documented for Gate 3 — chasing it with ano
 self-resolving blocker for reopening the "is this other model reliable" question, and would desynchronize
 the model actually tested from the one pinned in `render.yaml`/`docs/gate-0-plan.md`. Wait for the daily
 reset, or move to a paid billing tier, rather than switching models to dodge a quota window.
+
+## Gate 7
+
+### `test_open_opportunities_question_uses_only_approved_tools_and_cites_real_data`-style tests fail when run in the same pytest session as `test_agent.py`
+
+**What happened:** running the full opt-in integration suite in one command
+(`pytest --run-integration`) failed five tests with `ValueError: Model test-pinned-model-id not found`,
+all of them tests that build a real `root_agent` from `agent.agent`. Root cause: `test_agent.py`'s
+`importlib.reload(agent_module)` tests monkeypatch `GOOGLE_GENAI_MODEL=test-pinned-model-id` and reload
+`agent.agent` to rebuild `root_agent` under that fake env, then let monkeypatch revert the env — but
+nothing reloads the module a second time, so the process-wide `agent.agent` module (and its `root_agent`
+singleton) stays built with the fake model ID for the rest of that pytest process. Any later test in the
+same session that does `from agent.agent import root_agent` gets that same polluted instance. Pre-existing
+test-isolation gap, not introduced by Gate 7 — just never triggered before, because the opt-in live suites
+had only ever been run as their own separate `pytest --run-integration tests/test_X.py` invocations, never
+in the same process as `test_agent.py`.
+
+**Fix**: none applied — noted here rather than "fixed" because the correct fix (isolating
+`test_agent.py`'s module-reload tests, e.g. via a subprocess or an import-scoped fixture) is a test-harness
+change unrelated to Gate 7's own scope, and reordering/excluding files to dodge it would just hide the
+same fragility again later. **Always run the opt-in live suite as its own targeted invocation excluding
+`test_agent.py`** (e.g. `pytest --run-integration tests/test_integration_live.py tests/test_guardrails.py
+tests/test_multi_mcp_live.py tests/test_policy.py`), not a bare `pytest --run-integration` across
+everything, until this is actually fixed.
+
+### `test_nonexistent_opportunity_is_not_invented` (Gate 6) failed once, then passed on an isolated re-run
+
+**What happened:** during the same multi-file live run above, this AT-02 test (unrelated to Policy MCP)
+failed on one run; re-running it alone immediately passed. No transcript was captured from the failing
+run (the assertion message wasn't preserved), so the exact phrasing that tripped it is unknown.
+
+**Not fixed, not chased further**: consistent with this project's already-documented caveat that live
+Gemini phrasing varies run to run (see this file's Gate 3 "Gemini synthesis arithmetic error" entry, and
+`tests/test_integration_live.py`'s own docstring). If this recurs with a captured failure message, that
+message — not a guess — should drive any change to
+`tests/test_guardrails.py`'s `_mentions_a_fabricated_detail` heuristic.

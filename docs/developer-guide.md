@@ -381,7 +381,48 @@ Gate 6 section — summary here:
 
 ## Gate 7 — Policy MCP server
 
-_Renumbered from the original Gate 6. Not started yet._
+_Renumbered from the original Gate 6._
+
+**Status: PASS**, live evidence below. `policy_mcp/server.py` — a custom MCP server (official `mcp`
+Python SDK's `FastMCP`, stdio transport) exposing two tools (`score_opportunity`, `get_scoring_policy`)
+implementing the brief's own example revenue-prioritisation policy verbatim
+(`policy_mcp/policy.py`). Wired as a second `McpToolset` alongside Salesforce's in `agent/agent.py` —
+full design rationale in `docs/decisions/ADR-004-policy-mcp-design.md`, architecture statement in
+`docs/architecture.md`.
+
+- **Acceptance criterion met live**: asked *"Using our revenue prioritisation policy, which of my
+  high-value open opportunities should I prioritise and why?"* against the real deployed agent (real
+  Salesforce org, real Gemini). The agent, entirely on its own, orchestrated:
+  `getUserInfo` -> `get_scoring_policy` -> `getObjectSchema` -> `soqlQuery` (x3, retrieving real open
+  opportunities/accounts/activity) -> `score_opportunity` (x12, once per real retrieved opportunity, with
+  the real Amount/StageName/CloseDate/account-rating facts as arguments). The final answer explicitly
+  separated **"Salesforce Evidence"** (real Opportunity IDs, amounts, stages, close dates, account names)
+  from **policy scoring** ("Amount ($520k) exceeds $250k (+3 pts)", etc.), ranked opportunities into
+  tiers by score, and gave a concrete recommended action plan — none of this was templated by application
+  code; the agent chose every tool call itself.
+- **No mutation capability introduced**: the live-advertised tool catalogue for this question was exactly
+  the union of Salesforce's six read-only tools and Policy MCP's two tools —
+  `{find, getObjectSchema, getRelatedRecords, getUserInfo, listRecentSobjectRecords, soqlQuery,
+  score_opportunity, get_scoring_policy}` — pinned in `tests/test_multi_mcp_live.py` and re-verified
+  against both fixtures every run.
+- **Existing Salesforce-only tests unaffected**: `tests/test_integration_live.py` and
+  `tests/test_guardrails.py` still pass with root_agent now carrying two toolsets — their allowlist
+  helper was widened to the same Salesforce+Policy union (a correct reflection of the new architecture,
+  not a weakened assertion; the subset check they enforce is unchanged).
+- Test suite: `tests/test_policy.py` (18 tests, fully offline except two real-stdio-subprocess smoke
+  tests — AT-07-01/02/03/08), `tests/test_multi_mcp_live.py` (opt-in, live — AT-07-05/06/07). Full offline
+  suite: 101 passed, 5 skipped (the pre-existing 4 opt-in live tests plus this new one).
+- **A live-test flake worth recording, not a Gate 7 regression**: on one run of the full opt-in suite,
+  `tests/test_guardrails.py::test_nonexistent_opportunity_is_not_invented` (a **Gate 6** test, unrelated to
+  Policy MCP) failed, then passed cleanly on an isolated re-run — consistent with this repo's existing,
+  documented caveat that live Gemini phrasing varies run to run (see `docs/troubleshooting.md`). Not
+  investigated further; noted rather than silently ignored.
+- **AGENT_INSTRUCTION change**: `agent/prompts.py` gained `POLICY_MCP_ADDENDUM`, appended to (never edited
+  into) the brief-pinned `SYSTEM_INSTRUCTION` constant, telling the model these tools exist and that it —
+  not either MCP server — must combine their output. `tests/test_agent.py` was updated to check the
+  combined instruction while still asserting the brief-pinned text is an unmodified prefix of it.
+- **Deferred, not built**: no additional Policy MCP capabilities beyond the brief's own example policy;
+  no hosted/remote Policy MCP transport (stdio only, per ADR-004); no runtime-editable policy weights.
 
 ---
 

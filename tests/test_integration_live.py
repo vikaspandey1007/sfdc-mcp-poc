@@ -61,9 +61,16 @@ def _approved_read_only_tool_names() -> set[str]:
     proven-read-only `sobject-reads` catalogue (see
     salesforce/postman-verification.md, "Evidence" #2), pinned as the same
     fixture test_mcp_connection.py uses, so there's one source of truth for
-    "what's approved" rather than a second hardcoded copy drifting from it."""
-    catalogue = json.loads((_FIXTURES / "sobject_reads_tools_list.json").read_text())
-    return {tool["name"] for tool in catalogue["tools"]}
+    "what's approved" rather than a second hardcoded copy drifting from it.
+
+    Gate 7 note: root_agent now also carries the Policy MCP toolset, so the
+    live-advertised catalogue legitimately includes its two tools too --
+    unioned in here rather than widening this into a generic allowlist,
+    since both are still a small, fully-enumerated, known-safe set (neither
+    Salesforce nor Policy MCP has grown a mutation-shaped tool)."""
+    sf_catalogue = json.loads((_FIXTURES / "sobject_reads_tools_list.json").read_text())
+    policy_catalogue = json.loads((_FIXTURES / "policy_mcp_tools_list.json").read_text())
+    return {tool["name"] for tool in sf_catalogue["tools"]} | {tool["name"] for tool in policy_catalogue["tools"]}
 
 
 @pytest.fixture

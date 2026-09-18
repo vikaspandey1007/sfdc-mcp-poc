@@ -86,3 +86,39 @@ deliberately deferred, not silently skipped.
   it doesn't touch the working demo credentials, so it's lower-risk than the ECA revocation above, but was
   still deferred for now by explicit choice to keep Gate 6 focused on what's provable without touching live
   org state right before a client demo.
+
+## Gate 7 — Second MCP server, defence-in-depth extended to a custom server
+
+Gate 7 adds `policy_mcp/server.py`, a second, application-owned MCP server, and extends this project's
+existing three-layer defence-in-depth model to it rather than inventing a separate security story for
+"our own" server:
+
+- **Layer 1 — agent behavioural instructions.** `agent/prompts.py`'s `POLICY_MCP_ADDENDUM` tells the
+  model these tools exist and that it must retrieve the policy's actual rules rather than inventing them,
+  and combine Salesforce facts with policy output itself. Same caveat as Layer 1 always has in this
+  project: a behavioral ask, not an enforced boundary on its own.
+- **Layer 2 — MCP capability/tool boundary.** Policy MCP exposes exactly two narrowly-typed tools
+  (`score_opportunity`, `get_scoring_policy`) — no arbitrary code execution, no SQL, no filesystem access,
+  no generic HTTP capability. This narrowness is itself the security property here, the same way "no
+  create/update/delete tool exists in Salesforce's catalogue" was Gate 2's security property — there is
+  no broader capability for a compromised or confused model to reach for, because none was ever exposed.
+  `score_opportunity`'s inputs are validated (`InvalidOpportunityFactsError`) and a bad call comes back as
+  an MCP-level tool error, never a fabricated score — verified by a real stdio subprocess call in
+  `tests/test_policy.py`, not just a mocked one.
+- **Layer 3 — identity and platform permissions.** Doesn't apply to Policy MCP the way it applies to
+  Salesforce — there is no identity to authenticate, by design (a local, trusted, no-network server). The
+  actual Layer-3-equivalent guarantee for Policy MCP is narrower and different in kind: it holds **no**
+  Salesforce or Gemini credential material at all, verified by a dedicated static test
+  (`tests/test_policy.py::test_policy_mcp_source_has_no_salesforce_or_gemini_credential_material`,
+  AT-07-08) that scans its source for every real secret env var name and for any import of `agent.*`/
+  `auth.*`, not just an absence of a reason to add them.
+
+**Each MCP server is its own trust domain** (the brief's own architectural rule, restated in
+`docs/architecture.md`): approving Policy MCP does not pre-approve any future MCP server (a hosted Policy
+MCP, Demandbase, Gong, ...) — each would need its own delta assessment covering identity, tools, data,
+and actions, exactly as this project's approach to Salesforce's own MCP server was never assumed to
+extend automatically to anything else.
+
+**No secrets in source, fixtures, documentation, or logs (AT-07-08 re-verified for this gate)**: the same
+full-history `git log --all -p` secret-shape scan run for Gate 6 was re-run after this gate's changes —
+still only the pre-existing fixture JWT-shaped test string, never a real value.

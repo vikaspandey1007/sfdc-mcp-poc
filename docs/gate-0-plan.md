@@ -623,9 +623,15 @@ section J, which already used "Gate 7" for this).
   and Policy MCP output, explains the resulting ranking, and neither MCP server
   does the cross-source reasoning itself.
 - **Effort**: 0.5–1 day.
-- **Likely failure modes**: agent conflates the two servers' data provenance in
-  its explanation — test explicitly that the response distinguishes CRM
-  evidence from policy weighting.
+- **Likely failure modes, actually hit**: none of the predicted "agent conflates provenance" risk
+  materialized — the live run cleanly separated "Salesforce Evidence" from policy scoring in its own
+  headings without being told to structure the answer that way beyond `agent/prompts.py`'s
+  `POLICY_MCP_ADDENDUM`. What was actually hit instead: a pre-existing test-isolation gap (running the
+  full opt-in suite in one `pytest --run-integration` process pollutes `agent.agent`'s module-level
+  `root_agent` via `test_agent.py`'s `importlib.reload` trick) and one flaky live-Gemini-phrasing failure
+  in an unrelated Gate 6 test that passed on retry — both recorded in `docs/troubleshooting.md`'s Gate 7
+  section, neither a defect in this gate's own new code.
+- **Status: PASS** — see `docs/developer-guide.md`'s Gate 7 section for the live evidence.
 
 ---
 
