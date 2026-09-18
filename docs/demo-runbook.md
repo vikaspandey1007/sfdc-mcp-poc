@@ -110,8 +110,9 @@ another policy — means adding another entry to this menu, not rewriting how th
 
 **Presenter action**: show the "Future evolution" diagrams from the README.
 **Expected result**: n/a — closing framing.
-**Architecture point being demonstrated**: clearly labelled as *future*, not implemented — Demandbase/Gong
-as additional MCP servers, other LLM providers as a portability direction.
+**Architecture point being demonstrated**: clearly labelled as *future*, not implemented — Demandbase
+Capability and Gong Capability as additional governed capabilities (not committed MCP implementations),
+other LLM providers as a portability direction.
 **Talk track**: *"None of this is built yet — we want to be precise about that. But the architecture we
 just showed you doesn't need to change shape to get there."*
 

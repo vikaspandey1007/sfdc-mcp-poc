@@ -80,7 +80,9 @@ business capabilities; neither is a generic "run this code"/"query this"/"call t
   without a deploy, it would move to a hosted Streamable HTTP transport with its rules in a small config
   store — at that point this ADR's transport/storage choices should be revisited, not silently assumed
   to still hold.
-- Demandbase/Gong-style third-party MCP servers (explicitly out of scope for this gate, per the brief's
+- Demandbase/Gong-style third-party capabilities (explicitly out of scope for this gate, per the brief's
   own "future-state architecture to preserve") would plug into the same agent orchestration pattern this
-  gate proves, each as its own independent trust domain requiring its own delta security assessment —
-  approving this gate does not pre-approve any future server.
+  gate proves *if and when exposed through a governed MCP implementation* — no such implementation for
+  either exists, has been evaluated, or has been approved. Each would be its own independent trust domain
+  requiring its own delta security assessment — approving this gate does not pre-approve any future
+  server or capability.

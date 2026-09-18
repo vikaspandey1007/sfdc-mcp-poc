@@ -115,9 +115,10 @@ existing three-layer defence-in-depth model to it rather than inventing a separa
 
 **Each MCP server is its own trust domain** (the brief's own architectural rule, restated in
 `docs/architecture.md`): approving Policy MCP does not pre-approve any future MCP server (a hosted Policy
-MCP, Demandbase, Gong, ...) — each would need its own delta assessment covering identity, tools, data,
-and actions, exactly as this project's approach to Salesforce's own MCP server was never assumed to
-extend automatically to anything else.
+MCP, or a future Demandbase/Gong capability *if and when* either is exposed through MCP — neither has an
+MCP implementation today) — each would need its own delta assessment covering identity, tools, data, and
+actions, exactly as this project's approach to Salesforce's own MCP server was never assumed to extend
+automatically to anything else.
 
 **No secrets in source, fixtures, documentation, or logs (AT-07-08 re-verified for this gate)**: the same
 full-history `git log --all -p` secret-shape scan run for Gate 6 was re-run after this gate's changes —

@@ -229,13 +229,18 @@ require, not a roadmap with dates.
 **Executive message**: The pattern this POC proved is designed to extend — but extension is not yet
 attempted.
 
-**Recommended visual**: the README's two "Future evolution" diagrams (additional MCP servers;
-model-provider portability), both clearly watermarked FUTURE.
+**Recommended visual**: the README's two "Future evolution" diagrams (Demandbase Capability/Gong
+Capability under the governed capability layer; model-provider portability), both clearly watermarked
+FUTURE.
 
 **Content points**:
-- Additional enterprise capabilities as more MCP servers (Demandbase, Gong, others). **[FUTURE]**
-- Each new server is its own trust domain — approving these two never pre-approves a third. **[DESIGNED, stated principle]**
-- Model-provider portability (Claude, OpenAI, others) as an architectural direction. **[FUTURE — not tested]**
+- Additional enterprise capabilities — Demandbase Capability, Gong Capability, others — named
+  deliberately as capabilities, not committed MCP implementations. **[FUTURE]**
+- Each new capability is its own trust domain — approving these two proven servers never pre-approves a
+  third, regardless of protocol. **[DESIGNED, stated principle]**
+- **MCP interoperability has been demonstrated. LLM-provider portability has not.** Model-provider
+  portability (Claude, OpenAI, others) remains an architectural direction, not a tested capability.
+  **[FUTURE — not tested]**
 
 **Evidence/source**: `README.md` "Future evolution"; the original build brief's §9 future-state section.
 
