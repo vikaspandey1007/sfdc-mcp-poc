@@ -1,22 +1,30 @@
-# Gate 4 deployment guide — Render
+# Deployment guide — Render
 
 Written so a second developer could recreate this deployment from the repository plus this document,
-without anything held only on the original author's laptop (Gate 4 Step 5). Nothing here is evidence of a
-completed deployment — this is the recipe; `docs/troubleshooting.md` and the Gate 4 PR carry the actual
-run-through evidence once performed.
+without anything held only on the original author's laptop (Gate 4 Step 5). Covers both the backend
+(Gate 4) and the Streamlit thin UI (Gate 5, added so a demo doesn't depend on the presenter's own laptop).
+Nothing here is evidence of a completed deployment — this is the recipe; `docs/troubleshooting.md` and the
+Gate 4/5 PRs carry the actual run-through evidence once performed.
 
 ## What gets provisioned
 
 Per `docs/decisions/ADR-003-hosted-credential-persistence.md` and Gate 4 Step 2's "minimum Render
-components" instruction, exactly two Render services, declared in `render.yaml`:
+components" instruction, three Render services, declared in `render.yaml`:
 
 1. **`sfdc-mcp-poc-agent`** (Web Service) — runs `server/app.py`, the production-shaped entry point. Not
    `adk web`: that bundles a development UI, which Gate 4 says not to expose publicly.
-2. **`sfdc-mcp-poc-tokens`** (Key Value) — the only additional infrastructure. Holds the encrypted
+2. **`sfdc-mcp-poc-ui`** (Web Service, Gate 5) — runs `app/app.py`, the Streamlit thin UI, as its own
+   deployed service rather than only `streamlit run` on the presenter's laptop — added specifically so a
+   demo doesn't depend on having that laptop (e.g. presenting at a client site). Gated by its own
+   `UI_ACCESS_CODE` (see below) since this UI holds `DEMO_API_KEY` server-side and would otherwise be an
+   open, unauthenticated proxy to the paid backend for anyone who finds the URL.
+3. **`sfdc-mcp-poc-tokens`** (Key Value) — the only additional non-web infrastructure. Holds the encrypted
    Salesforce token pair; must be a **paid** plan with `persistenceMode: journal-snapshot` (the free tier
    has no persistence at all — see ADR-003).
 
-No database, no additional microservices, no Kubernetes — deliberately, per Gate 4's own principles.
+No database, no additional microservices, no Kubernetes — deliberately, per Gate 4's own principles
+(carried through Gate 5's addition too: reusing the same Render account/platform rather than adding e.g.
+Streamlit Community Cloud as a second hosting dependency).
 
 ## Environment configuration
 
@@ -29,9 +37,11 @@ No database, no additional microservices, no Kubernetes — deliberately, per Ga
 | `SF_MY_DOMAIN_URL` | Render Dashboard, manual | Static, per-org | Never committed |
 | `SF_ECA_CONSUMER_KEY` | Render Dashboard, manual | Static, per-org | Never committed |
 | `SF_MCP_SERVER_URL` | Render Dashboard, manual | Static | Never committed |
-| `DEMO_API_KEY` | Render Dashboard, manual, generated once | Static secret | Shared secret for `POST /ask` (`X-Demo-Api-Key` header). Generate: `python -c "import secrets; print(secrets.token_urlsafe(32))"` |
-| `CREDENTIAL_ENCRYPTION_KEY` | Render Dashboard, manual, generated once | Static secret | Fernet key protecting the token ciphertext in Key Value — **never** store this anywhere near the Key Value instance itself (ADR-003, Gate 4 principle 5) |
-| `REDIS_URL` | Auto-wired via `fromService` in `render.yaml` | N/A — not manual | The Key Value instance's internal connection string |
+| `DEMO_API_KEY` | Render Dashboard, manual, generated once | Static secret | Shared secret for `POST /ask` (`X-Demo-Api-Key` header). Generate: `python -c "import secrets; print(secrets.token_urlsafe(32))"`. **Set on both `sfdc-mcp-poc-agent` and `sfdc-mcp-poc-ui` — same value on both**, since the UI calls the agent's `/ask` the same way any other client would |
+| `CREDENTIAL_ENCRYPTION_KEY` | Render Dashboard, manual, generated once | Static secret | Fernet key protecting the token ciphertext in Key Value — **never** store this anywhere near the Key Value instance itself (ADR-003, Gate 4 principle 5). `sfdc-mcp-poc-agent` only |
+| `REDIS_URL` | Auto-wired via `fromService` in `render.yaml` | N/A — not manual | The Key Value instance's internal connection string. `sfdc-mcp-poc-agent` only |
+| `UI_ACCESS_CODE` | Render Dashboard, manual, generated once (Gate 5) | Static secret | Gates `sfdc-mcp-poc-ui` itself — a viewer must enter this once per browser session before the question box appears. Generate the same way as `DEMO_API_KEY`. Share it with whoever needs to drive the demo, not with the audience |
+| `AGENT_API_URL` | `render.yaml` literal, on `sfdc-mcp-poc-ui` only | Static | Points the UI at `sfdc-mcp-poc-agent`'s public URL — update if that service is ever renamed |
 
 No value from this table is ever printed by this app — `GET /health` (`server/app.py`) deliberately returns
 only `{"status": "ok"}` (Step 6 AT-09), and every module handling a secret logs field names/shapes at most,
@@ -40,28 +50,32 @@ never values (Gate 0's AT-06, carried through every gate).
 ## Provisioning order
 
 1. **Apply the Blueprint** (`render.yaml`) via the Render Dashboard ("New" → "Blueprint", point it at this
-   repo). This creates both services but the web service will fail its first deploy — that's expected, it
-   fails fast on missing configuration (`server/app.py`'s startup validation), not silently.
-2. **Set the manual secrets** (Dashboard → `sfdc-mcp-poc-agent` → Environment): `GOOGLE_API_KEY`,
-   `SF_MY_DOMAIN_URL`, `SF_ECA_CONSUMER_KEY`, `SF_MCP_SERVER_URL`, `DEMO_API_KEY`, `CREDENTIAL_ENCRYPTION_KEY`
-   (generation commands in `render.yaml`'s comments). Redeploy.
-3. **Confirm the Key Value instance's plan and persistence mode** in the Dashboard — `render.yaml`'s `plan`
+   repo). This creates all three services but the two web services will fail their first deploy — that's
+   expected, `sfdc-mcp-poc-agent` fails fast on missing configuration (`server/app.py`'s startup
+   validation) and `sfdc-mcp-poc-ui` refuses to render without `UI_ACCESS_CODE`, not silently.
+2. **Set the manual secrets on `sfdc-mcp-poc-agent`** (Dashboard → that service → Environment):
+   `GOOGLE_API_KEY`, `SF_MY_DOMAIN_URL`, `SF_ECA_CONSUMER_KEY`, `SF_MCP_SERVER_URL`, `DEMO_API_KEY`,
+   `CREDENTIAL_ENCRYPTION_KEY` (generation commands in `render.yaml`'s comments). Redeploy.
+3. **Set the manual secrets on `sfdc-mcp-poc-ui`**: `DEMO_API_KEY` (the *same* value as step 2, copied
+   across) and `UI_ACCESS_CODE` (a new, separate value, shared only with whoever drives the demo). Redeploy.
+4. **Confirm the Key Value instance's plan and persistence mode** in the Dashboard — `render.yaml`'s `plan`
    value is a placeholder; make sure whatever's actually selected is a paid plan with Journal + Snapshot
    persistence, not the free/no-persistence default.
-4. **Register the hosted callback URL on the Salesforce ECA** (Gate 4 Step 3, manual, mirrors how the
+5. **Register the hosted callback URL on the Salesforce ECA** (Gate 4 Step 3, manual, mirrors how the
    previous two callback URLs were added in Gates 2/3 — see `salesforce/external-client-app.md`): Setup →
    External Client Apps → `Revenue_Agent_MCP_Client` → add `OAUTH_REDIRECT_URI`'s value (e.g.
    `https://sfdc-mcp-poc-agent.onrender.com/oauth/salesforce/callback`) as an additional callback URL,
    newline-separated alongside the existing three. Re-retrieve `ExtlClntAppGlobalOauthSettings`, redact the
    Consumer Key again, commit. **Do not remove the existing local/Postman callback URLs.**
-5. **Authorize the hosted service once, interactively, as a human**: visit
+6. **Authorize the hosted service once, interactively, as a human**: visit
    `https://sfdc-mcp-poc-agent.onrender.com/oauth/salesforce/authorize` in a browser, log in/consent as the
    demo Salesforce user. This is the hosted equivalent of running `python -m auth.token_broker` locally —
    same PKCE mechanics (`auth/token_broker.py`'s `build_authorization_request`/`exchange_code_for_tokens`),
    different transport (`server/oauth.py`'s routes, backed by the Key Value instance for the short-lived
    state/verifier handshake, not a local throwaway HTTP server).
-6. **Verify**: `GET /health` returns `{"status": "ok"}`; `POST /ask` with the correct `X-Demo-Api-Key`
-   header and a real question returns a synthesized answer citing real Salesforce data (Step 7).
+7. **Verify**: `GET /health` returns `{"status": "ok"}`; `POST /ask` with the correct `X-Demo-Api-Key`
+   header and a real question returns a synthesized answer citing real Salesforce data (Step 7);
+   `sfdc-mcp-poc-ui`'s URL prompts for the access code, then shows the same working question/answer flow.
 
 ## Re-authorizing later
 
@@ -69,7 +83,7 @@ Salesforce's refresh token is rotated automatically on each use (`salesforce/ext
 `auth/token_broker.get_valid_access_token()` refreshes proactively — no manual action needed under normal
 operation. If the refresh token is ever revoked or expires outright, `POST /ask` returns a `503` with a
 message pointing back at `/oauth/salesforce/authorize` (Step 4's "graceful handling of expired/revoked
-Salesforce credentials", AT-05) — re-run step 5 above.
+Salesforce credentials", AT-05) — re-run step 6 above.
 
 ## What this guide does not cover yet
 

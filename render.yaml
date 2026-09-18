@@ -69,6 +69,30 @@ services:
           type: keyvalue
           property: connectionString
 
+  # Gate 5's thin UI, deployed here (not just run locally) so it's reachable
+  # without the presenter's own laptop -- e.g. demoing at a client site.
+  # DEMO_API_KEY here must be the SAME value entered for sfdc-mcp-poc-agent
+  # above (this UI calls that service's /ask over the public internet, the
+  # same as any other client). UI_ACCESS_CODE is a separate secret gating
+  # the UI itself -- see app/app.py's docstring for why: this UI holds
+  # DEMO_API_KEY server-side and uses it on behalf of any visitor, so
+  # without its own gate it would be an open, unauthenticated proxy to the
+  # paid backend the moment this URL is public.
+  - name: sfdc-mcp-poc-ui
+    type: web
+    runtime: python
+    plan: starter # placeholder -- confirm against Render's current plans
+    region: oregon
+    buildCommand: pip install -e .
+    startCommand: streamlit run app/app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    envVars:
+      - key: AGENT_API_URL
+        value: https://sfdc-mcp-poc-agent.onrender.com
+      - key: DEMO_API_KEY
+        sync: false
+      - key: UI_ACCESS_CODE
+        sync: false
+
   - name: sfdc-mcp-poc-tokens
     type: keyvalue
     plan: starter # placeholder -- MUST be a paid plan; free tier has no persistence at all
