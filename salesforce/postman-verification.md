@@ -146,14 +146,14 @@ These values come directly from this repo's verified Gate 1 state (`salesforce/e
 | Client Authentication | **Send client credentials in body** (there's no secret to send as a Basic Auth header) |
 | Code Challenge Method | **SHA-256** (Postman generates the verifier/challenge automatically for this grant type) |
 
-`<SF_MY_DOMAIN_URL>` is your `.env`'s `SF_MY_DOMAIN_URL`
-(`https://epamsystemsinc9-dev-ed.develop.my.salesforce.com`).
+`<SF_MY_DOMAIN_URL>` is your `.env`'s `SF_MY_DOMAIN_URL` (real value redacted for public release here —
+see `docs/public-release-readiness.md`).
 
 ### 3. Get New Access Token
 
-Click **Get New Access Token** — opens a browser/popup to log in as `test_vikas_epam_27@epam.com` and
-consent. **Never paste the actual token value into chat or a doc** — only the token response's field
-names/shape are useful for documentation.
+Click **Get New Access Token** — opens a browser/popup to log in as the demo org's user and consent.
+**Never paste the actual token value into chat or a doc** — only the token response's field names/shape
+are useful for documentation.
 
 Confirmed working: `isCodeCredFlowEnabled = false` (flagged as unresolved in `external-client-app.md`) does
 **not** block the Authorization Code + PKCE flow — the token issuance succeeded, settling that open question
