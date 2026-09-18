@@ -604,12 +604,16 @@ created. Gate 5 is where that gets built and proven, not asserted.
 - **Likely failure modes**: agent silently retries/hallucinates on denial
   instead of surfacing it — requires deliberate prompt/guardrail testing.
 
-### Gate 6 — Second MCP server (Policy MCP)
+### Gate 7 — Second MCP server (Policy MCP)
+
+**Renumbered from the original Gate 6** (section F's own renumbering note above applies here too — this
+header was missed when the rest of the file was updated; corrected here rather than left inconsistent with
+section J, which already used "Gate 7" for this).
 - **Tasks**: implement `policy_mcp/server.py` using the official `mcp` Python
   SDK (stdio or local Streamable HTTP transport — no OAuth needed, it's a
   local trusted server); wire as a second `McpToolset` in `agent/agent.py`;
   validate the agent orchestrates across both servers itself (brief §8 Gate 6).
-- **Dependencies**: Gate 5 complete.
+- **Dependencies**: Gate 6 complete.
 - **Files changed**: `policy_mcp/*.py`, `agent/agent.py`, `agent/mcp_config.py`,
   `tests/test_policy.py`.
 - **Manual steps**: none (local server, no external auth).
