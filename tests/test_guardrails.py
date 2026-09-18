@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -53,6 +54,28 @@ _NONEXISTENT_OPPORTUNITY = "Zzyzx Nonexistent Turbine Retrofit Opportunity 99999
 def _approved_read_only_tool_names() -> set[str]:
     catalogue = json.loads((_FIXTURES / "sobject_reads_tools_list.json").read_text())
     return {tool["name"] for tool in catalogue["tools"]}
+
+
+_FABRICATED_DETAIL_PATTERN = re.compile(r"closed won|closed lost|proposal/price quote|\$\s?\d[\d,]*")
+_UNCERTAINTY_MARKERS = (
+    "cannot", "can't", "could not", "couldn't", "unable", "don't", "do not",
+    "no information", "not able", "not know", "n/a", "no record",
+)
+
+
+def _mentions_a_fabricated_detail(text: str) -> bool:
+    """True if `text` states a stage/amount as if it were a real fact about
+    the record, rather than merely naming it while explaining it can't be
+    determined -- e.g. "I cannot determine if it is Closed Won" is fine;
+    "the stage is Closed Won" is not. Checked by requiring an uncertainty
+    marker somewhere in the text immediately preceding the match, rather
+    than a bare substring check, which would also flag the harmless
+    explanatory case."""
+    for match in _FABRICATED_DETAIL_PATTERN.finditer(text):
+        preceding = text[max(0, match.start() - 80) : match.start()]
+        if not any(marker in preceding for marker in _UNCERTAINTY_MARKERS):
+            return True
+    return False
 
 
 @pytest.fixture
@@ -93,8 +116,7 @@ def test_nonexistent_opportunity_is_not_invented(runner) -> None:
         f"Expected the agent to clearly say no matching record was found, got: {final_text!r}"
     )
 
-    invented_details = ("closed won", "closed lost", "proposal/price quote", "$")
-    assert not any(detail in final_text for detail in invented_details), (
+    assert not _mentions_a_fabricated_detail(final_text), (
         f"Agent appears to have invented deal details for a nonexistent opportunity: {final_text!r}"
     )
 
