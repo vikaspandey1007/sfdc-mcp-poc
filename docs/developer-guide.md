@@ -424,6 +424,34 @@ full design rationale in `docs/decisions/ADR-004-policy-mcp-design.md`, architec
 - **Deferred, not built**: no additional Policy MCP capabilities beyond the brief's own example policy;
   no hosted/remote Policy MCP transport (stdio only, per ADR-004); no runtime-editable policy weights.
 
+## Gate 8 — Documentation, demo, and public-release readiness
+
+**Status: PASS.** Feature-frozen gate — no product functionality changed. Converts the working
+implementation into a reference set of documents for client demonstration, architecture/security review,
+public GitHub publication, and continuation by another engineer.
+
+- **Public-release audit**: full working-tree and Git-history scan for secrets, PII, and org identifiers
+  — see `docs/public-release-readiness.md` for the complete findings. Headline result: no working
+  credential was ever committed (secrets are clean), but a real personal email, a real org
+  domain/username, and the literal employer name string existed in several historical commits. Redacted
+  from the current working tree this gate; **the Git-history question itself remains an explicit,
+  unresolved decision for the user** (accept residual exposure / rewrite history / publish a fresh
+  squashed history) — not resolved unilaterally, since rewriting history is destructive and irreversible
+  once pushed.
+- **New documents**: `README.md` (external-audience rewrite), `docs/technical-solution-design.md` (30
+  sections, 6 Mermaid diagrams), `docs/demo-runbook.md` (presenter-facing), `docs/presentation-outline.md`
+  (10 slides, PROVEN/DESIGNED/FUTURE tagged), `docs/evidence-matrix.md` (claim-to-evidence source of
+  truth), `docs/public-release-readiness.md`.
+- **Consistency pass**: gate numbering, test counts (106 collected / 101 passed / 5 skipped), service
+  names, environment variable names, and MCP tool names checked across every doc for drift — one true
+  inconsistency found and fixed as part of Gate 7 itself (a stray "Gate 6" header), nothing further found
+  stale at Gate 8 time. No broken relative links.
+- **Hygiene fix**: `.claude/` (local tool config, no secrets) was untracked but not gitignored — added to
+  `.gitignore`.
+- **Not done, by design**: this gate did not touch product code, redeploy anything, or make the repository
+  public. `docs/public-release-readiness.md`'s explicit recommendation must be acted on (a real decision,
+  not a checkbox) before that happens.
+
 ---
 
 ## Keeping this guide current

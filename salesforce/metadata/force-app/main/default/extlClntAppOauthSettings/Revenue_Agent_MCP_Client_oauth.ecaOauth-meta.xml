@@ -4,5 +4,9 @@
     <externalClientApplication>Revenue_Agent_MCP_Client</externalClientApplication>
     <isFirstPartyAppEnabled>false</isFirstPartyAppEnabled>
     <label>Revenue_Agent_MCP_Client_oauth</label>
-    <oauthLink>00Dak00000dgZfd:888ak000002Qfb3</oauthLink>
+    <!-- Real org-scoped ID redacted for public release (docs/public-release-readiness.md).
+         This is a retrieved, org-specific artifact Salesforce regenerates on deploy; not needed
+         to recreate this ECA in a different org (see salesforce/external-client-app.md's
+         Setup-UI-only instructions). -->
+    <oauthLink>REDACTED_ORG_SCOPED_ID</oauthLink>
 </ExtlClntAppOauthSettings>

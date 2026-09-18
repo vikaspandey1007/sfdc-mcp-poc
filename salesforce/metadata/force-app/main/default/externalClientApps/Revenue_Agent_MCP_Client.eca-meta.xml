@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExternalClientApplication xmlns="http://soap.sforce.com/2006/04/metadata">
-    <contactEmail>pandey.tendu@gmail.com</contactEmail>
+    <!-- Real personal contact email and org ID redacted for public release
+         (docs/public-release-readiness.md). Both are retrieved, org-specific/personal
+         artifacts, not needed to recreate this ECA in a different org (see
+         salesforce/external-client-app.md's Setup-UI-only instructions). -->
+    <contactEmail>demo-contact@example.com</contactEmail>
     <distributionState>Local</distributionState>
     <isProtected>false</isProtected>
     <label>Revenue Agent MCP Client</label>
-    <orgScopedExternalApp>00Dak00000dgZfd:Revenue_Agent_MCP_Client</orgScopedExternalApp>
+    <orgScopedExternalApp>REDACTED_ORG_ID:Revenue_Agent_MCP_Client</orgScopedExternalApp>
 </ExternalClientApplication>

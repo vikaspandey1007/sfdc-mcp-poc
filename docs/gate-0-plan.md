@@ -30,8 +30,8 @@ actively managed, not assumed away.**
 - Salesforce Hosted MCP Servers reached **GA in April 2026** for Enterprise
   Edition+ orgs, and a separate April 2026 announcement extended it to
   **Developer Edition orgs for free**. The user's connected Dev org
-  (`vikas_pandey@creative-narwhal-sf6pwp.com`) should have it — pending live
-  verification (see Open Questions).
+  (username/domain redacted for public release — see `docs/public-release-readiness.md`)
+  should have it — pending live verification (see Open Questions).
   Source: developer.salesforce.com/blogs/2026/04/salesforce-hosted-mcp-servers-are-now-generally-available,
   developer.salesforce.com/blogs/2026/04/new-developer-edition-agentforce-vibes-claude-mcp
 - Google ADK's `McpToolset` **can** connect to a remote, OAuth+PKCE-protected MCP
@@ -818,14 +818,15 @@ Items 1–4 were resolved during Gate 0 (see findings below). Item 5 was resolve
 1. ~~Org verification method~~ **Resolved.** Re-authenticated via
    `sf org login web`; queried the org directly.
 2. ~~Which org to use~~ **Resolved.** Reusing the connected Dev org, alias
-   `devOrg1`, instance `epamsystemsinc9-dev-ed.develop.my.salesforce.com`,
-   username `test_vikas_epam_27@epam.com`. Confirmed via
+   `devOrg1` (real instance domain and username redacted for public release —
+   see `docs/public-release-readiness.md`). Confirmed via
    `SELECT Name, OrganizationType, IsSandbox FROM Organization`:
    `OrganizationType = Developer Edition`, `IsSandbox = false`. Note:
-   `Organization.Name` is `"EPAM Systems Inc"` — this is a free-text field set
-   at signup, not proof of corporate ownership/control; confirmed with the
-   user this is their own org and acceptable to use, flagged once for
-   awareness since it will visibly appear in any demo screenshots.
+   `Organization.Name` was a free-text value set at this org's signup, not
+   proof of corporate ownership/control — confirmed with the user this is
+   their own org and acceptable to use, flagged once for awareness since it
+   would otherwise visibly appear in any demo screenshots or, before Gate 8,
+   in this document.
 3. ~~Cost verification~~ **Resolved, with residual uncertainty.** Confirmed
    via Tooling API (`GET /tooling/sobjects/`) that Hosted MCP's platform
    objects (`McpServerDefinition`, `McpServerAccess`,
@@ -889,10 +890,17 @@ Gate 1).
    Gate 5). Stop and show evidence.
 8. **Gate 7** — Policy MCP server + multi-MCP orchestration demo (renumbered from the original Gate 6).
    Stop and show evidence.
-9. Final documentation pass (`docs/architecture.md`, `dfd.md`,
-   `security-model.md`, `threat-model.md`, `demo-script.md`,
-   `troubleshooting.md`) consolidated from what was actually built, plus ADRs
-   for each decision in section H.
+9. **Gate 8** — Documentation, demo, and public-release readiness (inserted here, per a dedicated brief
+   given directly for this gate, the same way Gate 4 was inserted — see section F's Gate 8 entry). Feature
+   development frozen for this gate. Fulfils this item's original "final documentation pass" intent
+   (`docs/architecture.md`, `docs/security-model.md`, `docs/demo-script.md`, `docs/troubleshooting.md`
+   already existed from earlier gates and were reviewed/updated here rather than written fresh; new for
+   this gate: `README.md`, `docs/technical-solution-design.md`, `docs/demo-runbook.md`,
+   `docs/presentation-outline.md`, `docs/evidence-matrix.md`, `docs/public-release-readiness.md`). A
+   dedicated `dfd.md`/`threat-model.md` were not produced as separate files — their content lives inside
+   `docs/technical-solution-design.md` (§17 Data Architecture, §24 Security/Threat Considerations) instead
+   of as standalone documents, since splitting them out would have meant restating the same diagrams
+   rather than adding new content. Stop and show evidence.
 
 Each gate proceeds only after explicit approval of the previous one, on its own
 branch, via PR, per the agreed git workflow.

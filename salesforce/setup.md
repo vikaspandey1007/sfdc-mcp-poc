@@ -1,9 +1,9 @@
 # Salesforce Setup — Gate 1 Status
 
-Org: Developer Edition, alias `devOrg1`, instance `epamsystemsinc9-dev-ed.develop.my.salesforce.com`,
-username `test_vikas_epam_27@epam.com`. Confirmed via `SELECT Name, OrganizationType, IsSandbox FROM
-Organization` (see `docs/gate-0-plan.md` Open Question 2 for the full record, including the "EPAM Systems Inc"
-org-name caveat).
+Org: Developer Edition, alias `devOrg1` (real instance domain and username redacted for public release —
+see `docs/public-release-readiness.md`). Confirmed via `SELECT Name, OrganizationType, IsSandbox FROM
+Organization` (see `docs/gate-0-plan.md` Open Question 2 for the full record, including the org-name
+caveat).
 
 This file tracks **actual, verified state**, not intent. Each row links to the evidence.
 

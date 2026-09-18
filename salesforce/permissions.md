@@ -58,7 +58,7 @@ numberComponentErrors    : 0
 Assigned to the demo user via `sf org assign permset --name Revenue_Agent_Read_Access -o devOrg1`:
 
 ```
-successes : {@{name=test_vikas_epam_27@epam.com; value=Revenue_Agent_Read_Access}}
+successes : {@{name=<demo-user-redacted>; value=Revenue_Agent_Read_Access}}
 failures  : {}
 ```
 
@@ -69,9 +69,12 @@ SELECT Id, Assignee.Username, PermissionSet.Name, PermissionSet.Label
 FROM PermissionSetAssignment
 WHERE PermissionSet.Name = 'Revenue_Agent_Read_Access'
 
-ID                  ASSIGNEE.USERNAME             PERMISSIONSET.NAME          PERMISSIONSET.LABEL
-0Paak000014BkfpCAC  test_vikas_epam_27@epam.com   Revenue_Agent_Read_Access   Revenue Agent Read Access
+ID                  ASSIGNEE.USERNAME       PERMISSIONSET.NAME          PERMISSIONSET.LABEL
+0Paak000014BkfpCAC  <demo-user-redacted>    Revenue_Agent_Read_Access   Revenue Agent Read Access
 ```
+
+(Real org username redacted for public release — see `docs/public-release-readiness.md`. The Permission
+Set Assignment `Id` above is retained as evidence shape; it identifies nothing outside this org.)
 
 ## Re-deploying / re-assigning
 
