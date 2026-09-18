@@ -49,7 +49,9 @@ combine it with real CRM facts on demand, in natural language, with the underlyi
 
 ## 5. Out of Scope (explicitly, per this project's own build brief and Gate 8's feature freeze)
 
-- Demandbase, Gong, or any additional MCP server beyond Salesforce and Policy MCP.
+- Demandbase Capability, Gong Capability, or any additional MCP server beyond Salesforce and Policy MCP
+  — named as capabilities here deliberately, since no MCP (or other) implementation for either has been
+  built, evaluated, or approved.
 - Any LLM provider other than Gemini.
 - Any database (PostgreSQL, etc.) — hosted persistence uses a managed Key Value store for exactly one
   encrypted value, not a schema'd datastore.
@@ -406,8 +408,10 @@ Before any production deployment, this POC would need, at minimum:
 
 ## 30. Future-State Architecture
 
-See `README.md`'s "Future evolution" section (Demandbase/Gong/enterprise MCPs, model-provider
-portability) — not duplicated here. The one addition worth stating at solution-design depth: **the current
+See `README.md`'s "Future evolution" section (Demandbase Capability/Gong Capability, model-provider
+portability) — not duplicated here. **MCP interoperability across independent servers has been
+demonstrated (Salesforce + Policy MCP); LLM-provider portability has not** — the two are independent
+claims, and this document makes only the first. The one addition worth stating at solution-design depth: **the current
 architecture is designed to localise those changes rather than require a wholesale redesign.** Adding a
 third MCP server or swapping the LLM provider are both changes this design concentrates in
 `agent/mcp_config.py` and `agent/agent.py` respectively — neither has been attempted, and this document

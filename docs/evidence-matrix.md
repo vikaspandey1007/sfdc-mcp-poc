@@ -37,4 +37,4 @@ item, not silently skipped), **FUTURE** (not implemented — architectural direc
 | Existing Salesforce-only capability unaffected by adding Policy MCP | Same agent, two toolsets | Full offline suite (101 passed, 5 skipped) unchanged in pass/fail shape after Gate 7 | Live | `docs/developer-guide.md` Gate 7 | **PROVEN** |
 | MCP protocol vendor-neutrality / general portability | N/A | N/A | N/A | `docs/architecture.md` | **FUTURE** — this project proves it for exactly two servers, not portability in general |
 | LLM provider portability (non-Gemini) | N/A | N/A | N/A | `README.md` "Known limitations" | **FUTURE** — not attempted |
-| Demandbase/Gong integration | N/A | N/A | N/A | `README.md` "Future evolution" | **FUTURE** — not implemented |
+| Demandbase Capability / Gong Capability | N/A | N/A | N/A | `README.md` "Future evolution" | **FUTURE** — not implemented; no MCP (or other) implementation for either has been built, evaluated, or approved |

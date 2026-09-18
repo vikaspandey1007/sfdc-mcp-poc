@@ -204,9 +204,11 @@ flowchart LR
 - B1↔B3: The only credential crossing this boundary is the per-user OAuth
   access token, scoped narrowly (`mcp_api`, `refresh_token`), obtained via
   Authorization Code + PKCE, never a shared/service-account credential.
-- Each MCP server (Salesforce today; Policy MCP in Gate 6; Demandbase/Gong in
-  the future-state) is its own independent trust domain — approval of one does
-  not imply approval of another (brief §9).
+- Each MCP server (Salesforce today; Policy MCP in Gate 6) is its own independent trust domain — approval
+  of one does not imply approval of another (brief §9). The same rule applies to Demandbase/Gong in the
+  future-state, whether or not either ends up implemented as an MCP server specifically — see
+  `README.md`'s "Future evolution" (they are named as capabilities, not committed implementations, as of
+  Gate 8's terminology decision).
 
 ---
 

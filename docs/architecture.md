@@ -37,19 +37,24 @@ evolution"), the agent still reaches it as one more MCP server alongside Salesfo
 transport changes one function
 (`agent/mcp_config.py:build_policy_mcp_toolset()`); it does not change how the agent decides to use it.
 
-This is also the shape the brief's own "future-state architecture to preserve" describes scaling to:
+This is also the shape the brief's own "future-state architecture to preserve" describes scaling to —
+restated here with **Demandbase Capability**/**Gong Capability** rather than the brief's original
+"Demandbase MCP"/"Gong MCP" naming, since no MCP implementation for either has actually been built,
+evaluated, or approved; naming them as capabilities avoids implying a commitment this project hasn't made:
 
 ```
 Revenue Intelligence Agent
    |
-   +-- Demandbase MCP   -> intent / account intelligence
-   +-- Salesforce MCP   -> CRM / opportunity context
-   `-- Gong MCP         -> conversation intelligence
+   +-- Demandbase Capability (future)  -> intent / account intelligence
+   +-- Salesforce MCP (proven)         -> CRM / opportunity context
+   `-- Gong Capability (future)        -> conversation intelligence
 ```
 
-Each additional MCP server is its own independent security/data trust domain requiring its own delta
+Each additional capability is its own independent security/data trust domain requiring its own delta
 assessment (identity, tools, data, actions) — approving Gate 7's Policy MCP does not pre-approve any
-future server, the same rule the brief states for Salesforce not pre-approving Demandbase/Gong.
+future capability or server, the same rule the brief states for Salesforce not pre-approving
+Demandbase/Gong. Whether Demandbase or Gong end up exposed through MCP, some other protocol, or not at
+all is an open question this project does not answer.
 
 ## Policy MCP's responsibility (and what it deliberately does not own)
 

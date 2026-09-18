@@ -226,26 +226,34 @@ every secret's *name*, never its value) are in [`docs/deployment-guide.md`](docs
   scoring weights without a code change.
 - **Gemini is currently the only implemented LLM provider.** Provider portability has **not** been
   demonstrated — this is a stated future direction, not a proven capability.
-- **Demandbase and Gong are future architecture, not implemented** — mentioned only as the shape this
-  pattern is designed to extend to, per the original build brief's own future-state section.
+- **Demandbase Capability and Gong Capability are future architecture, not implemented.** These are
+  named as capabilities, not committed MCP implementations — no vendor MCP server for either has been
+  built, evaluated, or approved. Where a governed MCP implementation becomes available for either, it may
+  be exposed the same way Salesforce's is; that hasn't happened yet.
 - Demo authentication (`DEMO_API_KEY`, `UI_ACCESS_CODE`) is a **shared-secret scheme for a POC demo**, not
   enterprise SSO/identity federation.
 
 ## Future evolution
 
-**Clearly future, not built:**
+**The governed capability layer this project proved (Salesforce MCP, Policy MCP) is designed to extend —
+what's below it today is proven; what's beside it is future, not built:**
 
 ```
 Revenue Intelligence Agent
-   |
-   +-- Salesforce MCP
-   +-- Demandbase MCP    (future — intent/account intelligence)
-   +-- Gong MCP           (future — conversation intelligence)
-   +-- Policy/Enterprise MCPs (future — additional business capabilities)
+        |
+Governed capability layer
+   /       |          |           \
+Salesforce  Demandbase Capability  Gong Capability   Enterprise Policy MCP
+   MCP      (future)               (future)          (proven -- this project's Policy MCP)
+(proven)
 ```
 
-Each additional MCP server would be its own independent trust domain, requiring its own delta security
-assessment — approving this project's two servers does not pre-approve any future one.
+**Demandbase Capability** and **Gong Capability** are named deliberately as capabilities, not as
+committed MCP implementations — no vendor MCP server for either exists, has been evaluated, or has been
+approved. Each may end up exposed through MCP where an appropriate, governed MCP implementation is
+available or built; that is a future decision, not one this project has made. Each additional capability
+would be its own independent trust domain, requiring its own delta security assessment — approving this
+project's two proven servers does not pre-approve any future one, whatever protocol it eventually uses.
 
 **Also future — model-provider portability:**
 

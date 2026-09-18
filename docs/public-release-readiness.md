@@ -1,23 +1,42 @@
-# Public release readiness audit (Gate 8)
+# Public release readiness audit (Gate 8, updated post-publication)
 
 Performed against the full repository and full Git history (`git log --all -p`, `git grep`, `git ls-files`),
-not just the current working tree — a redaction in the latest commit does not remove a value from history,
-and GitHub shows full history by default. Dated 2026-09-18, against `main` at the point Gate 8 started
-(commit range: everything through Gate 7's merge).
+not just the current working tree — a redaction in a later commit does not remove a value from history,
+and GitHub shows full history by default. Original audit dated 2026-09-18 (Gate 8). **Updated
+2026-09-18 to record the decision actually taken**: the repository is now public at
+`github.com/vikaspandey1007/sfdc-mcp-poc`.
 
-## Overall recommendation
+## Overall status
 
-**ACTION REQUIRED before this exact Git history is pushed to a public remote.** The current working tree
-is clean (see below) and every offline/live test still passes after the redactions this gate made
-(106 collected, 101 passed + 5 skipped offline). But real personal and organisational identifiers exist in
-several historical commits and would be visible to anyone browsing this repo's history on GitHub, even
-though the same values have now been redacted from the current files. **This is not a "PASS" until that
-history question is explicitly decided** — see "Finding 1" below for the three real options and why none
-of them was chosen unilaterally.
+**The repository is public. This is recorded as an accepted state, not an open question.** The current
+working tree contains no known credentials or secrets (Finding 2, PASS, unchanged). Historical personal
+and organisation metadata identified during the original audit (Finding 1) — a real personal email, a
+real Salesforce org domain/username, the employer name, and two org-scoped Salesforce IDs, across several
+historical commits — was **consciously accepted as residual exposure before publication**, rather than
+removed via a history rewrite. That decision has been made and executed; it is not still pending.
 
-Everything else in this audit is a genuine **PASS**: no working credential, token, or key was ever found
-in current files or history; repository hygiene is clean; documentation/gate-numbering consistency issues
-found were fixed as part of this gate, not just listed.
+This document does **not** claim Git history is free of that historical metadata — it isn't, and saying
+otherwise would misrepresent the audit. The distinction that matters is between the two finding types
+below: a **security finding** (none) and a **privacy/metadata finding** (one, accepted).
+
+### Security finding
+
+No known credentials, tokens, encryption keys, API keys, or authentication secrets are exposed, in either
+the current working tree or Git history. See Finding 2 below for the full scan detail — unchanged since
+the original audit, re-verified as still accurate at publication time.
+
+### Privacy / metadata finding
+
+Historical commits contain the previously identified personal, organisation, and Salesforce environment
+metadata described in Finding 1 below (a real personal email, a real org domain/username, the employer
+name, two org-scoped Salesforce IDs). **This is an accepted residual exposure, not an unresolved secret
+leak.** It was weighed against the cost of rewriting history (destructive, breaks any existing
+clone/fork, loses the incremental gate-by-gate commit history this project uses as its own evidence
+trail) and accepted as the lower-cost option, given the underlying org is a free Developer Edition trial
+with only synthetic sample data and no working credential was ever exposed alongside it.
+
+Everything else in this audit remains a genuine **PASS**: repository hygiene is clean; documentation/gate-
+numbering consistency issues found were fixed as part of Gate 8, not just listed.
 
 ## Finding 1 (highest severity) — real personal/org identifiers exist in Git history
 
@@ -46,30 +65,29 @@ Going forward, no new commit will reintroduce them as long as future contributor
 `salesforce/postman-verification.md`-established discipline of never pasting real domains/usernames into
 docs.
 
-**Remediation NOT applied, and why** — rewriting Git history (`git filter-repo`/BFG, or a fresh squashed
-history) to remove these values from every past commit was considered and deliberately **not done**:
-it is a destructive, hard-to-reverse operation (rewrites every commit hash on `main`, breaks any existing
-clone/fork, and cannot be undone once pushed) that this document's own instructions require explicit
-user approval for, not an assumption. **Three real options exist, in order of how much history is
-preserved**:
+**Decision taken: option 1, push as-is, accept the residual exposure.** Rewriting Git history
+(`git filter-repo`/BFG, or a fresh squashed history) to remove these values from every past commit was
+considered and **not done** — it is a destructive, hard-to-reverse operation (rewrites every commit hash
+on `main`, breaks any existing clone/fork, and cannot be undone once pushed). Three options were
+weighed; this is the one actually executed, and the repository is now public on this basis:
 
-1. **Push as-is, accept the residual exposure.** Lowest effort, but the four items above remain
-   permanently visible in this repo's history once public. Reasonable only if the user has already decided
-   the exposure is acceptable (the org itself was already used in earlier gates with the user's confirmed
-   awareness — see `docs/gate-0-plan.md`'s Open Question 2 — but that confirmation predates the "public
-   forever" context Gate 8 introduces, so it should be re-confirmed, not assumed to still apply).
-2. **Rewrite history to scrub just these values** (`git filter-repo --replace-text` or equivalent), keeping
-   every commit's structure/message/timeline intact. Removes the exposure while preserving the gate-by-gate
-   commit history this project has been careful to build as evidence. Destructive to existing clones/forks;
-   requires a force-push.
-3. **Publish a fresh, single-history export** (e.g. `git init` a new repo, copy the current working tree,
-   one commit) to a new public remote, keeping the detailed gate-by-gate history only in a private original.
-   Cleanest exposure-wise, but loses the incremental commit history as public evidence of how each gate was
-   actually built — a real cost, since several of this project's own docs (e.g. `docs/troubleshooting.md`)
-   point back at specific commits as evidence.
+1. **Push as-is, accept the residual exposure — chosen.** The four items above remain permanently visible
+   in this repo's history now that it's public. Accepted on the basis that the underlying org is a free
+   Developer Edition trial with only synthetic sample data, no working credential was ever exposed
+   alongside these values (Finding 2), and the org itself was already used in earlier gates with the
+   user's confirmed awareness (see `docs/gate-0-plan.md`'s Open Question 2) — re-confirmed for the
+   specific "public forever" context before publication, not assumed to still apply unchanged.
+2. **Rewrite history to scrub just these values** (`git filter-repo --replace-text` or equivalent) — not
+   chosen. Would have removed the exposure while preserving the gate-by-gate commit history this project
+   uses as evidence, but destructive to any existing clone/fork and requires a force-push; the cost
+   outweighed the benefit given option 1's residual risk was already assessed as low.
+3. **Publish a fresh, single-history export** — not chosen. Would have been cleanest exposure-wise, but
+   at the cost of the incremental commit history this project's own docs (e.g. `docs/troubleshooting.md`)
+   point back to as evidence of how each gate was actually built.
 
-**This choice is the user's, not this document's** — it trades off effort, history preservation, and
-residual exposure differently, and only the user can weigh which of those three matters most here.
+If new information changes the risk assessment behind this decision (for example, if this Developer
+Edition org is ever repurposed for anything beyond synthetic sample data), revisit options 2 and 3 rather
+than assuming the decision above holds indefinitely.
 
 ## Finding 2 — secrets/credentials: PASS
 
@@ -109,7 +127,7 @@ Covered by Finding 1 above; no additional items found. Specifically checked and 
 - One local-only tool config, `.claude/` (Claude Code's own settings — a permissions allowlist, no
   secrets), was untracked but not yet gitignored. **Fixed this gate**: added to `.gitignore`.
 - No broken relative markdown links across `docs/*.md` (checked programmatically, all resolve).
-- Gate numbering is now fully consistent everywhere (`Gate 0` through `Gate 7`, matching
+- Gate numbering is now fully consistent everywhere (`Gate 0` through `Gate 8`, matching
   `docs/gate-0-plan.md`'s section J) — the one remaining inconsistency (Policy MCP's section header still
   saying "Gate 6" instead of "Gate 7") was caught and fixed during Gate 7 itself, not left for this audit.
 - Test-count claims in existing docs were checked against the actual current suite
