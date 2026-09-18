@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from agent.prompts import SYSTEM_INSTRUCTION
+from agent.prompts import AGENT_INSTRUCTION, POLICY_MCP_ADDENDUM, SYSTEM_INSTRUCTION
 
 _BUILD_BRIEF = Path(__file__).parent.parent / "CLAUDE_BUILD_BRIEF_SALESFORCE_GEMINI_MCP.md"
 _TEST_MCP_SERVER_URL = "https://api.salesforce.com/platform/mcp/v1/platform/sobject-reads"
@@ -56,7 +56,19 @@ def test_root_agent_identity_and_instruction() -> None:
 
     importlib.reload(agent_module)
     assert agent_module.root_agent.name == "RevenuePrioritisationAgent"
-    assert agent_module.root_agent.instruction == SYSTEM_INSTRUCTION
+    assert agent_module.root_agent.instruction == AGENT_INSTRUCTION
+    # The pinned brief text (SYSTEM_INSTRUCTION) must still be a literal
+    # prefix of whatever the agent actually receives -- Gate 7's addendum
+    # is appended, never edited in.
+    assert agent_module.root_agent.instruction.startswith(SYSTEM_INSTRUCTION)
+    assert POLICY_MCP_ADDENDUM in agent_module.root_agent.instruction
+
+
+def test_root_agent_has_both_salesforce_and_policy_mcp_toolsets() -> None:
+    import agent.agent as agent_module
+
+    importlib.reload(agent_module)
+    assert len(agent_module.root_agent.tools) == 2
 
 
 def test_agent_module_requires_gemini_env(monkeypatch: pytest.MonkeyPatch) -> None:

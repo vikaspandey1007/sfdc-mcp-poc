@@ -1,0 +1,7 @@
+{
+  "_source": "Captured live from policy_mcp/server.py via a real stdio ClientSession.list_tools() call, Gate 7 -- see tests/test_policy.py's test_server_starts_over_real_stdio_and_exposes_expected_tools, which re-verifies this on every offline test run rather than trusting this fixture to stay in sync silently.",
+  "tools": [
+    { "name": "score_opportunity", "description": "Deterministic revenue-prioritisation score for one opportunity's already-retrieved facts", "annotations": { "readOnlyHint": true, "destructiveHint": false } },
+    { "name": "get_scoring_policy", "description": "Returns the fixed prioritisation rule catalogue itself", "annotations": { "readOnlyHint": true, "destructiveHint": false } }
+  ]
+}

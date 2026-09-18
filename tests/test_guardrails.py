@@ -52,8 +52,12 @@ _NONEXISTENT_OPPORTUNITY = "Zzyzx Nonexistent Turbine Retrofit Opportunity 99999
 
 
 def _approved_read_only_tool_names() -> set[str]:
-    catalogue = json.loads((_FIXTURES / "sobject_reads_tools_list.json").read_text())
-    return {tool["name"] for tool in catalogue["tools"]}
+    """Gate 7 note: unioned with the Policy MCP catalogue too, since
+    root_agent now carries that toolset as well -- see the identical note in
+    tests/test_integration_live.py's copy of this helper."""
+    sf_catalogue = json.loads((_FIXTURES / "sobject_reads_tools_list.json").read_text())
+    policy_catalogue = json.loads((_FIXTURES / "policy_mcp_tools_list.json").read_text())
+    return {tool["name"] for tool in sf_catalogue["tools"]} | {tool["name"] for tool in policy_catalogue["tools"]}
 
 
 _FABRICATED_DETAIL_PATTERN = re.compile(r"closed won|closed lost|proposal/price quote|\$\s?\d[\d,]*")
