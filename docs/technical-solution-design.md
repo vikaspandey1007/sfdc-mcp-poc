@@ -407,8 +407,10 @@ Before any production deployment, this POC would need, at minimum:
 ## 30. Future-State Architecture
 
 See `README.md`'s "Future evolution" section (Demandbase/Gong/enterprise MCPs, model-provider
-portability) — not duplicated here. The one addition worth stating at solution-design depth: **the
-architecture does not need to change shape to support either extension.** Adding a third MCP server or
-swapping the LLM provider are both changes localised to `agent/mcp_config.py` and `agent/agent.py`
-respectively, in principle — neither has been attempted, and this document does not claim either would be
-friction-free in practice, only that the current design does not structurally block them.
+portability) — not duplicated here. The one addition worth stating at solution-design depth: **the current
+architecture is designed to localise those changes rather than require a wholesale redesign.** Adding a
+third MCP server or swapping the LLM provider are both changes this design concentrates in
+`agent/mcp_config.py` and `agent/agent.py` respectively — neither has been attempted, and this document
+does not claim either would be friction-free in practice. Provider-specific auth mechanisms and
+tool-calling semantics can still force real changes beyond those two files; "localised" is not a promise
+of "trivial."

@@ -11,10 +11,11 @@ services — to be useful. The common shortcut is to give the agent direct API c
 those systems itself, which quietly couples the reasoning layer to every system it touches and makes the
 resulting access boundary hard to reason about, audit, or govern.
 
-This project explores an alternative: **MCP as a capability boundary**. The agent never holds Salesforce
-credentials or talks to Salesforce's API directly — it talks to an MCP server, which exposes a fixed,
-inspectable set of tools and enforces its own access rules independently of the model. What the agent can
-do is defined by what the MCP server's catalogue exposes, not by what the model decides to attempt.
+This project explores an alternative: **MCP as a capability boundary**. The model does not receive
+Salesforce credentials and does not call Salesforce APIs directly; the integration layer owns OAuth/token
+handling and invokes Salesforce through Hosted MCP, which exposes a fixed, inspectable set of tools and
+enforces its own access rules independently of the model. What the agent can do is defined by what the
+MCP server's catalogue exposes, not by what the model decides to attempt.
 
 ## What this project proves
 
