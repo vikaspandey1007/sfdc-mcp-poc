@@ -326,12 +326,34 @@ was still needed on top of the JSON API) in favor of building it, per direct ins
     demonstrated through the actual UI a viewer would use — see `docs/security-model.md`.
 - **Manual steps**: `$env:DEMO_API_KEY = "..."; streamlit run app/app.py` — nothing beyond what the
   original plan anticipated.
-- Test suite: `tests/test_app.py` (7 tests, `streamlit.testing.v1.AppTest`, `requests.post` mocked) — a
+- Test suite: `tests/test_app.py` (13 tests, `streamlit.testing.v1.AppTest`, `requests.post` mocked) — a
   light smoke tier per this repo's own note that Streamlit apps are hard to unit test meaningfully; the one
   assertion treated as load-bearing rather than incidental is that the API key is never rendered on screen,
   across every path (missing key, success, failure).
 - `docs/demo-script.md`: first draft, cross-referencing `docs/security-model.md` and
   `docs/decisions/ADR-003-hosted-credential-persistence.md`.
+- **PR review follow-up (post-merge)**: added a lightweight per-session lockout on `UI_ACCESS_CODE` (5
+  wrong guesses → 60s lockout, `st.session_state`-scoped — a deterrent against casual guessing, not a
+  distributed-attack defense) and corrected `docs/demo-script.md`'s negative-path wording, which had
+  implied the evidence panel always shows zero tool calls for the refused mutation. It doesn't always —
+  see the hosted-UI evidence immediately below, where the negative test's evidence panel shows exactly one
+  (read-only) tool call, not zero.
+- **Hosted-UI verification (third Render service, `sfdc-mcp-poc-ui`)**: the localhost run above proved the
+  UI code against the hosted `/ask` API; this step separately proves the *third deployed service* itself,
+  end-to-end, hosted-to-hosted — the actual client-demo path (no laptop required). Provisioned via a Render
+  Blueprint Manual Sync (the Blueprint had been left pointed at `deployment/gate-4-render`; switched to
+  `main` first), then `DEMO_API_KEY`/`UI_ACCESS_CODE` set manually on the new service per
+  `docs/deployment-guide.md`.
+  - Opened `https://sfdc-mcp-poc-ui.onrender.com`, entered `UI_ACCESS_CODE`, unlocked the question box.
+  - Positive question (*"Show me opportunities that are at stage closed won and more that $250K"*)
+    returned a real 4-row table with actual Opportunity IDs, amounts, close dates, and a summary
+    ("Total Revenue from Query Matches: $1,975,000 across 4 deals... Top Account: United Oil & Gas Corp
+    ..."), evidence panel showing 2 tool calls.
+  - Negative question (*"Update opportunity United Oil Refinery Generators to stage Closed Lost"*) was
+    refused ("I cannot update Salesforce records, as I do not have permission or tools to modify Salesforce
+    data."), while still surfacing the matching records' real current state for reference; evidence panel
+    showed exactly 1 tool call, a read, and zero mutation-shaped calls — same structural guarantee as the
+    localhost run, now proven through the actual publicly-reachable demo URL.
 
 ## Gate 6 — Security unhappy paths
 
