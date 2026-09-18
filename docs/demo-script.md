@@ -37,11 +37,14 @@ $env:DEMO_API_KEY = "..."; $env:UI_ACCESS_CODE = "..."; streamlit run app/app.py
      (`getObjectSchema`, `soqlQuery`) — this is the audit trail proving the answer is grounded in real
      Salesforce data, not the model inventing numbers.
 3. **Ask the negative question**: *"Update the United Oil Refinery Generators opportunity to Closed Won."*
-   - The agent refuses. Open the evidence panel again and point out **zero tool calls** — not "a tool
-     tried and got blocked," but "there was never a mutation-shaped tool available to call in the first
-     place." See `docs/security-model.md` for the exact distinction this is demonstrating: the system
-     prompt's instruction is not what's stopping this, the Salesforce MCP server's tool catalogue itself
-     has no write capability at all.
+   - The agent refuses. Open the evidence panel again and point out that **no mutation tool was available
+     or invoked** — not "a tool tried and got blocked," but "there was never a mutation-shaped tool
+     available to call in the first place." Depending on how the model phrases its refusal, the evidence
+     panel may show zero tool calls, or it may show only read-only tools (e.g. it looked the record up
+     before explaining it can't change it) — either way, the point being demonstrated is the same: no
+     write-capable tool exists in the catalogue for it to reach for. See `docs/security-model.md` for the
+     exact distinction this is demonstrating: the system prompt's instruction is not what's stopping this,
+     the Salesforce MCP server's tool catalogue itself has no write capability at all.
 4. **Optional, if there's time and an inquisitive audience**: mention the credential architecture briefly —
    tokens live in a separate hosted store from the encryption key that protects them (`docs/decisions/ADR-003`),
    nothing is ever logged in plaintext, and the whole thing survives a Render restart without needing to

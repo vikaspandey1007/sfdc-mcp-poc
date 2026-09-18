@@ -3,9 +3,10 @@
 Per docs/gate-0-plan.md's own note ("Streamlit apps are hard to unit test
 meaningfully -- note this as a known limitation rather than
 over-engineering test coverage here"), this stays a light smoke-test tier:
-does the app render, does the access-code gate actually gate, does asking
-a question show the answer/evidence, does a failure show a friendly error,
-and -- the assertions worth being thorough about -- are DEMO_API_KEY and
+does the app render, does the access-code gate actually gate (including the
+lockout after repeated wrong guesses), does asking a question show the
+answer/evidence, does a failure show a friendly error, and -- the
+assertions worth being thorough about -- are DEMO_API_KEY and
 UI_ACCESS_CODE ever rendered on screen. Uses streamlit.testing.v1.AppTest,
 which actually executes the script; requests.post is mocked so nothing
 here makes a real network call.
@@ -86,6 +87,35 @@ def test_wrong_access_code_is_rejected_and_stays_locked() -> None:
     assert any("Incorrect access code" in e.value for e in at.error)
     # Still locked: no question box appeared.
     assert len(at.text_input) == 1  # still just the access-code field
+
+
+def test_repeated_wrong_attempts_shows_a_countdown_to_the_next_attempt() -> None:
+    at = AppTest.from_file(_APP_PATH)
+    at.run()
+    for _ in range(5):
+        at.text_input[0].input("totally-wrong-code").run()
+        at.button[0].click().run()
+
+    assert not at.exception
+    assert any("Too many incorrect attempts" in e.value for e in at.error)
+    # Lockout screen shows no code field at all -- nothing left to guess against.
+    assert len(at.text_input) == 0
+
+
+def test_correct_code_still_works_before_the_lockout_threshold_is_reached() -> None:
+    at = AppTest.from_file(_APP_PATH)
+    at.run()
+    for _ in range(4):
+        at.text_input[0].input("totally-wrong-code").run()
+        at.button[0].click().run()
+
+    at.text_input[0].input(_TEST_ACCESS_CODE).run()
+    at.button[0].click().run()
+
+    assert not at.exception
+    # Unlocked: the single text_input is now the question box, not the code field.
+    assert len(at.text_input) == 1
+    assert len(at.error) == 0
 
 
 def test_correct_access_code_unlocks_the_question_box() -> None:

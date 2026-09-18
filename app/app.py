@@ -19,6 +19,9 @@ UI_ACCESS_CODE gates that: a one-time passcode per browser session,
 required in every environment (local and hosted alike) rather than only
 enforced when "deployed" -- same "fail closed, never treat missing config
 as no key required" posture as server/app.py's own DEMO_API_KEY check.
+Repeated wrong guesses trip a short per-session lockout (see
+_MAX_ATTEMPTS_BEFORE_LOCKOUT below) -- a lightweight deterrent against
+casual guessing, not a substitute for treating the code as a real secret.
 
 Run locally (the presenter sets these in their own shell first):
     export DEMO_API_KEY=...  UI_ACCESS_CODE=...     # PowerShell: $env:NAME = "..."
@@ -29,6 +32,7 @@ from __future__ import annotations
 
 import hmac
 import os
+import time
 from typing import Any
 
 import requests
@@ -36,6 +40,15 @@ import streamlit as st
 
 _DEFAULT_AGENT_API_URL = "https://sfdc-mcp-poc-agent.onrender.com"
 _REQUEST_TIMEOUT_SECONDS = 90
+
+# Lightweight, per-browser-session lockout against guessing UI_ACCESS_CODE --
+# this is session_state, not a shared/persistent store, so it resets on a new
+# tab/session and does not protect against a distributed attempt across many
+# sessions. That's an accepted tradeoff for a demo access code, not a
+# security boundary on par with DEMO_API_KEY itself (server/app.py enforces
+# that one; see docs/security-model.md).
+_MAX_ATTEMPTS_BEFORE_LOCKOUT = 5
+_LOCKOUT_SECONDS = 60
 
 
 def agent_api_url() -> str:
@@ -96,13 +109,28 @@ def render() -> None:
         return
 
     if not st.session_state.get("unlocked"):
+        locked_until = st.session_state.get("locked_until", 0.0)
+        remaining_lockout = locked_until - time.monotonic()
+        if remaining_lockout > 0:
+            st.error(f"Too many incorrect attempts. Try again in {int(remaining_lockout) + 1}s.")
+            return
+
         entered_code = st.text_input("Access code", type="password")
         if st.button("Unlock", disabled=not entered_code):
             if hmac.compare_digest(entered_code, configured_code):
                 st.session_state["unlocked"] = True
+                st.session_state["failed_attempts"] = 0
                 st.rerun()
             else:
-                st.error("Incorrect access code.")
+                failed_attempts = st.session_state.get("failed_attempts", 0) + 1
+                if failed_attempts >= _MAX_ATTEMPTS_BEFORE_LOCKOUT:
+                    st.session_state["failed_attempts"] = 0
+                    st.session_state["locked_until"] = time.monotonic() + _LOCKOUT_SECONDS
+                    st.rerun()
+                else:
+                    st.session_state["failed_attempts"] = failed_attempts
+                    remaining_attempts = _MAX_ATTEMPTS_BEFORE_LOCKOUT - failed_attempts
+                    st.error(f"Incorrect access code. {remaining_attempts} attempt(s) left before a temporary lockout.")
         return
 
     st.caption(f"Talking to {agent_api_url()}")
